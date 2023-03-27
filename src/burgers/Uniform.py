@@ -24,14 +24,12 @@ def quasirandom(n_samples, sampler):
             sampler = skopt.sampler.Sobol(min_skip=2, max_skip=2, randomize=False)
         else:
             sampler = skopt.sampler.Sobol(skip=0, randomize=False)
-            return np.array(
-                sampler.generate(space, n_samples + 2)[2:]
-            )
+            return np.array(sampler.generate(space, n_samples + 2)[2:])
     return np.array(sampler.generate(space, n_samples))
 
 
 def gen_testdata():
-    data = np.load("Burgers.npz")
+    data = np.load("src/burgers/Burgers.npz")
     t, x, exact = data["t"], data["x"], data["usol"].T
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
@@ -50,13 +48,24 @@ def main(NumDomain, method):
     timedomain = dde.geometry.TimeDomain(0, 1)
     geomtime = dde.geometry.GeometryXTime(geom, timedomain)
 
-    if method == 'Grid':
-        data = dde.data.TimePDE(geomtime, pde, [], num_domain=NumDomain, train_distribution='uniform')
-    elif method == 'Random':
-        data = dde.data.TimePDE(geomtime, pde, [], num_domain=NumDomain, train_distribution='pseudo')
-    elif method in ['LHS', 'Halton', 'Hammersley', 'Sobol']:
+    if method == "Grid":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, train_distribution="uniform"
+        )
+    elif method == "Random":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, train_distribution="pseudo"
+        )
+    elif method in ["LHS", "Halton", "Hammersley", "Sobol"]:
         sample_pts = quasirandom(NumDomain, method)
-        data = dde.data.TimePDE(geomtime, pde, [], num_domain=0, train_distribution='uniform', anchors=sample_pts)
+        data = dde.data.TimePDE(
+            geomtime,
+            pde,
+            [],
+            num_domain=0,
+            train_distribution="uniform",
+            anchors=sample_pts,
+        )
 
     net = dde.maps.FNN([2] + [64] * 3 + [1], "tanh", "Glorot normal")
 
@@ -76,12 +85,18 @@ def main(NumDomain, method):
     y_pred = model.predict(X)
     error = dde.metrics.l2_relative_error(y_true, y_pred)
     print("L2 relative error:", error)
-    dde.saveplot(losshistory, train_state, issave=True, isplot=True)
+    dde.saveplot(
+        losshistory,
+        train_state,
+        issave=True,
+        isplot=True,
+        output_dir="results/raw/uniform",
+    )
     return error
 
 
 if __name__ == "__main__":
-    main(NumDomain=5000, method='Grid')
+    main(NumDomain=5000, method="Grid")
     # main(NumDomain=5000, method='Random')
     # main(NumDomain=5000, method='LHS')
     # main(NumDomain=5000, method='Halton')
