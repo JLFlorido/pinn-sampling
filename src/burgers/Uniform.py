@@ -96,9 +96,9 @@ def main(NumDomain, method):
 
 
 if __name__ == "__main__":
-    main(NumDomain=5000, method="Grid")
+    # main(NumDomain=5000, method="Grid")
     # main(NumDomain=5000, method='Random')
     # main(NumDomain=5000, method='LHS')
     # main(NumDomain=5000, method='Halton')
-    # main(NumDomain=5000, method='Hammersley')
+    main(NumDomain=5000, method="Hammersley")
     # main(NumDomain=5000, method='Sobol')
