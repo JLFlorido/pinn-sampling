@@ -77,7 +77,7 @@ def main(NumDomain, method):
     model = dde.Model(data, net)
 
     model.compile("adam", lr=1e-3)
-    model.train(epochs=15000)
+    model.train(epochs=5)  # Originally 1500
     model.compile("L-BFGS")
     losshistory, train_state = model.train()
 
