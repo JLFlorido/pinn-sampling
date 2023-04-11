@@ -3,6 +3,7 @@ import numpy as np
 from deepxde.backend import tf
 import skopt
 from distutils.version import LooseVersion
+import matplotlib.pyplot as plt
 
 dde.config.set_default_float("float64")
 
@@ -34,7 +35,7 @@ def gen_testdata():
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = exact.flatten()[:, None]
-    return X, y
+    return X, y, xx, tt
 
 
 def main(NumDomain, method):
@@ -77,14 +78,28 @@ def main(NumDomain, method):
     model = dde.Model(data, net)
 
     model.compile("adam", lr=1e-3)
-    model.train(epochs=5)  # Originally 1500
+    model.train(epochs=1500)  # Originally 1500
     model.compile("L-BFGS")
     losshistory, train_state = model.train()
 
-    X, y_true = gen_testdata()
+    X, y_true, xx, tt = gen_testdata()  # xx and tt are meshgrid shaped for pcolormesh
     y_pred = model.predict(X)
     error = dde.metrics.l2_relative_error(y_true, y_pred)
+    # plot u(t,x) distribution as a color-map
+    fig = plt.figure(figsize=(10, 8), dpi=50)
+    y_plot = y_pred.reshape(
+        (100, 256)
+    )  # y is flat for error comparison, needs to be matrix for pcolormesh
+    plt.pcolormesh(xx, tt, y_plot, cmap="rainbow")
+    plt.xlabel("t")
+    plt.ylabel("x")
+    cbar = plt.colorbar(pad=0.05, aspect=10)
+    cbar.set_label("u(t,x)")
+    cbar.mappable.set_clim(-1, 1)
     print("L2 relative error:", error)
+    # This function saves and plots data from the history, instead of plotting the
+    #  last prediction that is used for the error. This is why the data is at the
+    # last training points and not in a grid.
     dde.saveplot(
         losshistory,
         train_state,
