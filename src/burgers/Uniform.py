@@ -4,6 +4,7 @@ from deepxde.backend import tf
 import skopt
 from distutils.version import LooseVersion
 import matplotlib.pyplot as plt
+import time
 
 dde.config.set_default_float("float64")
 
@@ -78,7 +79,7 @@ def main(NumDomain, method):
     model = dde.Model(data, net)
 
     model.compile("adam", lr=1e-3)
-    model.train(epochs=1500)  # Originally 1500
+    model.train(epochs=15000)  # Originally 15000
     model.compile("L-BFGS")
     losshistory, train_state = model.train()
 
@@ -90,7 +91,7 @@ def main(NumDomain, method):
     y_plot = y_pred.reshape(
         (100, 256)
     )  # y is flat for error comparison, needs to be matrix for pcolormesh
-    plt.pcolormesh(xx, tt, y_plot, cmap="rainbow")
+    plt.pcolormesh(tt, xx, y_plot, cmap="rainbow")
     plt.xlabel("t")
     plt.ylabel("x")
     cbar = plt.colorbar(pad=0.05, aspect=10)
@@ -103,7 +104,7 @@ def main(NumDomain, method):
     dde.saveplot(
         losshistory,
         train_state,
-        issave=True,
+        issave=False,
         isplot=True,
         output_dir="results/raw/uniform",
     )
@@ -111,9 +112,11 @@ def main(NumDomain, method):
 
 
 if __name__ == "__main__":
+    start_t = time.time()
     # main(NumDomain=5000, method="Grid")
     # main(NumDomain=5000, method='Random')
     # main(NumDomain=5000, method='LHS')
     # main(NumDomain=5000, method='Halton')
-    main(NumDomain=5000, method="Hammersley")
+    main(NumDomain=2000, method="Hammersley")
     # main(NumDomain=5000, method='Sobol')
+    print("Time taken: {:.02f}s".format(time.time() - start_t))

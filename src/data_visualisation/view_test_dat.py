@@ -5,7 +5,7 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
 # Import Data For Plot 1 and 2 (The scatter graph)
-fname_test = "results/raw/uniform/test.dat"
+fname_test = "results/raw/test_uniform.dat"
 train_state = np.loadtxt(fname_test, delimiter=" ", skiprows=1)
 
 # # Import Data For Plot3 (2D Contour)
@@ -38,22 +38,38 @@ ax.scatter3D(
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
 ax.set_title("$u(x,t)$")
-# plt.show()
 
-data = np.load("src/burgers/Burgers.npz")
-t, x, exact = data["t"], data["x"], data["usol"].T
-xx, tt = np.meshgrid(x, t)
-X = np.vstack((np.ravel(xx), np.ravel(tt))).T
-y = exact.flatten()[:, None]
-print(exact.shape)
-print(y.shape)
-y_back = y.reshape((100, 256))
-print(y_back.shape)
-fig = plt.figure(figsize=(10, 8), dpi=50)
-plt.pcolormesh(tt, xx, y_back, cmap="rainbow")
-plt.xlabel("t")
-plt.ylabel("x")
-cbar = plt.colorbar(pad=0.05, aspect=10)
-cbar.set_label("u(t,x)")
-cbar.mappable.set_clim(-1, 1)
+# Data for loss and l2 over iterations
+fname_traind = "results/raw/train_RAD_default.dat"
+train_state = np.loadtxt(fname_traind, delimiter=" ", skiprows=1)
+fname_rad_loss = "results/raw/loss_RAD_default.dat"
+loss_rad = np.loadtxt(fname_rad_loss, delimiter=" ", skiprows=1)
+fname_uni_loss = "results/raw/loss_uniform.dat"
+loss_uniform = np.loadtxt(fname_uni_loss, delimiter=" ", skiprows=1)
+plt.figure(3)
+ax = plt.axes()
+ax.plot(
+    loss_rad[:, 0],
+    loss_rad[:, 1],
+    loss_rad[:, 0],
+    loss_rad[:, 2],
+    loss_uniform[:, 0],
+    loss_uniform[:, 1],
+    loss_uniform[:, 0],
+    loss_uniform[:, 2],
+)
+ax.set_yscale("log")
+plt.figure(4)
+ax = plt.axes()
+ax.plot(
+    loss_uniform[:, 0],
+    loss_uniform[:, 1],
+    loss_uniform[:, 0],
+    loss_uniform[:, 2],
+)
+ax.set_yscale("log")
+# ax.plot()
+
+# plt.figure(4)
+
 plt.show()
