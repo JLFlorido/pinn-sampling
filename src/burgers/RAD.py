@@ -19,6 +19,7 @@ def gen_testdata():
 def main(k, c):
     NumDomain = 2000
 
+    tf.keras.backend.clear_session()
     dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 
     def pde(x, y):
@@ -57,11 +58,11 @@ def main(k, c):
     model.train()
     y_pred = model.predict(X_test)
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-    error = [np.array([l2_error])]
+    error = [l2_error]
     print(f"l2_relative_error: {l2_error}")
     print("Now starts the resample loop")
 
-    for i in range(10):
+    for i in range(100):
         X = geomtime.random_points(100000)
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
@@ -75,13 +76,13 @@ def main(k, c):
         print("Adam going for 1000")
         model.compile("adam", lr=0.001)
         model.train(epochs=1000)
-        print("L-BFGS going for 1000")
+        print("L-BFGS going for up to 2000")
         model.compile("L-BFGS")
         losshistory, train_state = model.train()
 
         y_pred = model.predict(X_test)
         l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        error.append(np.array([l2_error]))
+        error.append(l2_error)
         print("!\nFinished loop #{}\n".format(i))
         print(f"l2_relative_error: {l2_error}")
 
@@ -94,17 +95,23 @@ def main(k, c):
 if __name__ == "__main__":
 
     time_cost = []
-    error = []
+    errors = []
+    final_errors = []
     for n in range(10):
         start_t = time.time()
-        _, error1 = main(c=1, k=1)
-        error.append(error1)
+        
+        all_error, final_error_only = main(c=1, k=1)
+        #errors.append(all_error) # error history
+        final_errors.append(final_error_only)
         time_cost.append((time.time() - start_t))
 
-        print(
-            "\n--------------------------------------------\nFinished run #{}".format(n)
-        )
+        print("Finished run #{}".format(n))
         print("Time taken: {:.02f}s".format(time.time() - start_t))
-    error = np.array(error)
-    np.savetxt(f"results/raw/time_RAR-D_2000_b.txt", time_cost)
-    np.savetxt(f"results/raw/error_RAR-D_2000_b.txt", error)
+        print("\n--------------------------------------------\n")
+    errors = np.array(errors)
+    np.savetxt(f"results/raw/time_RAD_100res.txt", time_cost)
+    np.savetxt(f"results/raw/final_error_RAD_100res.txt", final_errors)
+    print(errors.shape)
+    print(errors)
+    np.savetxt(f"results/raw/all_error_RAD_100res.txt", errors)
+    print("Files saved")

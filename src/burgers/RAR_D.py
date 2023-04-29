@@ -18,6 +18,7 @@ def gen_testdata():
 
 def main(k, c):
     NumDomain = 2000
+    tf.keras.backend.clear_session()
 
     dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 
@@ -101,5 +102,5 @@ if __name__ == "__main__":
         )
         print("Time taken: {:.02f}s".format(time.time() - start_t))
     error = np.array(error)
-    np.savetxt(f"results/raw/time_RAR-D_2000_b.txt", time_cost)
-    np.savetxt(f"results/raw/error_RAR-D_2000_b.txt", error)
+    np.savetxt(f"results/raw/.txt", time_cost)
+    np.savetxt(f"results/raw/.txt", error)
