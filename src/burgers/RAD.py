@@ -20,6 +20,7 @@ def main(k, c):
     NumDomain = 2000
 
     tf.keras.backend.clear_session()
+    tf.compat.v1.reset_default_graph()
     dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 
     def pde(x, y):
@@ -88,6 +89,8 @@ def main(k, c):
 
     error = np.array(error)
     dde.saveplot(losshistory, train_state, issave=True, isplot=False)
+    
+    del model
     # np.savetxt(f"error_RAD_k_{k}_c_{c}.txt", error)
     return error, l2_error
 
@@ -97,21 +100,24 @@ if __name__ == "__main__":
     time_cost = []
     errors = []
     final_errors = []
-    for n in range(10):
+    for n in range(3):
         start_t = time.time()
         
         all_error, final_error_only = main(c=1, k=1)
-        #errors.append(all_error) # error history
+        errors.append(all_error) # error history
         final_errors.append(final_error_only)
         time_cost.append((time.time() - start_t))
 
         print("Finished run #{}".format(n))
         print("Time taken: {:.02f}s".format(time.time() - start_t))
         print("\n--------------------------------------------\n")
-    errors = np.array(errors)
     np.savetxt(f"results/raw/time_RAD_100res.txt", time_cost)
-    np.savetxt(f"results/raw/final_error_RAD_100res.txt", final_errors)
+    np.savetxt(f"results/raw/error_RAD_100res.txt", final_errors)
+
+
+    errors = np.array(errors)
     print(errors.shape)
     print(errors)
     np.savetxt(f"results/raw/all_error_RAD_100res.txt", errors)
     print("Files saved")
+

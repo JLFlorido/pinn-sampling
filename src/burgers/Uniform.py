@@ -86,17 +86,17 @@ def main(NumDomain, method):
     X, y_true, xx, tt = gen_testdata()  # xx and tt are meshgrid shaped for pcolormesh
     y_pred = model.predict(X)
     error = dde.metrics.l2_relative_error(y_true, y_pred)
-    # plot u(t,x) distribution as a color-map
-    fig = plt.figure(figsize=(10, 8), dpi=50)
-    y_plot = y_pred.reshape(
-        (100, 256)
-    )  # y is flat for error comparison, needs to be matrix for pcolormesh
-    plt.pcolormesh(tt, xx, y_plot, cmap="rainbow")
-    plt.xlabel("t")
-    plt.ylabel("x")
-    cbar = plt.colorbar(pad=0.05, aspect=10)
-    cbar.set_label("u(t,x)")
-    cbar.mappable.set_clim(-1, 1)
+    # # plot u(t,x) distribution as a color-map
+    # fig = plt.figure(figsize=(10, 8), dpi=50)
+    # y_plot = y_pred.reshape(
+    #     (100, 256)
+    # )  # y is flat for error comparison, needs to be matrix for pcolormesh
+    # plt.pcolormesh(tt, xx, y_plot, cmap="rainbow")
+    # plt.xlabel("t")
+    # plt.ylabel("x")
+    # cbar = plt.colorbar(pad=0.05, aspect=10)
+    # cbar.set_label("u(t,x)")
+    # cbar.mappable.set_clim(-1, 1)
     print("L2 relative error:", error)
     # This function saves and plots data from the history, instead of plotting the
     #  last prediction that is used for the error. This is why the data is at the
@@ -104,19 +104,30 @@ def main(NumDomain, method):
     dde.saveplot(
         losshistory,
         train_state,
-        issave=False,
-        isplot=True,
-        output_dir="results/raw/uniform",
+        issave=True,
+        isplot=False,
+        output_dir="results/raw",
     )
     return error
 
 
 if __name__ == "__main__":
-    start_t = time.time()
-    # main(NumDomain=5000, method="Grid")
-    # main(NumDomain=5000, method='Random')
-    # main(NumDomain=5000, method='LHS')
-    # main(NumDomain=5000, method='Halton')
-    main(NumDomain=2000, method="Hammersley")
-    # main(NumDomain=5000, method='Sobol')
-    print("Time taken: {:.02f}s".format(time.time() - start_t))
+    time_cost = []
+    final_errors = []
+    for n in range(1):
+        start_t = time.time()
+        # main(NumDomain=5000, method="Grid")
+        # main(NumDomain=5000, method='Random')
+        # main(NumDomain=5000, method='LHS')
+        # main(NumDomain=5000, method='Halton')
+        final_error_only  = main(NumDomain=10000, method="Hammersley")
+        # main(NumDomain=5000, method='Sobol')
+        final_errors.append(final_error_only)
+        time_cost.append((time.time() - start_t))
+
+        print("Finished run #{}".format(n+1))
+        print("Time taken: {:.02f}s".format(time.time() - start_t))
+        print("\n--------------------------------------------\n")
+    np.savetxt(f"results/raw/time_Ham_10k.txt", time_cost)
+    np.savetxt(f"results/raw/error_Ham_10k.txt", final_errors)
+    print("Files saved")
