@@ -19,6 +19,7 @@ def gen_testdata():
 def main(k, c):
     NumDomain = 2000
     tf.keras.backend.clear_session()
+    tf.compat.v1.reset_default_graph()
 
     dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 
@@ -60,7 +61,7 @@ def main(k, c):
     error = [np.array([l2_error])]
     print(f"l2_relative_error: {l2_error}")
     print("Now starts the resample loop")
-    for i in range(10):
+    for i in range(100):
         X = geomtime.random_points(100000)
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
@@ -91,7 +92,7 @@ def main(k, c):
 if __name__ == "__main__":
     time_cost = []
     error = []
-    for n in range(1):
+    for n in range(2):
         start_t = time.time()
         _, error1 = main(c=2, k=0)
         error.append(error1)
@@ -102,5 +103,5 @@ if __name__ == "__main__":
         )
         print("Time taken: {:.02f}s".format(time.time() - start_t))
     error = np.array(error)
-    np.savetxt(f"results/raw/.txt", time_cost)
-    np.savetxt(f"results/raw/.txt", error)
+    np.savetxt(f"results/raw/error_and_time/time_RAR-D_default3.txt", time_cost)
+    np.savetxt(f"results/raw/error_and_time/error_RAR-D_default3.txt", error)
