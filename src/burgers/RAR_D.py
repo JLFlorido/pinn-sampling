@@ -17,11 +17,11 @@ def gen_testdata():
 
 
 def main(k, c):
-    NumDomain = 2000
+    NumDomain = 200
     tf.keras.backend.clear_session()
     tf.compat.v1.reset_default_graph()
 
-    dde.optimizers.config.set_LBFGS_options(maxiter=1000)
+    # dde.optimizers.config.set_LBFGS_options(maxiter=1000)# Not here in original
 
     def pde(x, y):
         dy_x = dde.grad.jacobian(y, x, i=0, j=0)
@@ -38,7 +38,7 @@ def main(k, c):
         geomtime,
         pde,
         [],
-        num_domain=NumDomain // 2,
+        num_domain=NumDomain // 20,
         train_distribution="pseudo",
     )
 
@@ -52,24 +52,25 @@ def main(k, c):
     model = dde.Model(data, net)
     print("About to train adam for 15000")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000)
+    model.train(epochs=1000)
     print("About to train L-BFGS - Max should be 1000")
-    model.compile("L-BFGS")  # This seems to be taking more than 1000
+    model.compile("L-BFGS")  # This seems to be taking more than 1000 even with maxiter in
     model.train()
     y_pred = model.predict(X_test)
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
     error = [np.array([l2_error])]
     print(f"l2_relative_error: {l2_error}")
     print("Now starts the resample loop")
-    for i in range(100):
+    for i in range(10):
         X = geomtime.random_points(100000)
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(
-            a=len(X), size=NumDomain // 200, replace=False, p=err_eq_normalized
+            a=len(X), size=((NumDomain//200)*19), replace=False, p=err_eq_normalized
         )
-        data.add_anchors(X[X_ids])
+        X_selected=X[X_ids]
+        data.add_anchors(X_selected)
 
         print("Adam going for 1000")
         model.compile("adam", lr=0.001)
@@ -80,21 +81,24 @@ def main(k, c):
 
         y_pred = model.predict(X_test)
         l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        error.append(np.array([l2_error]))
+        error.append(l2_error)
         print("!\nFinished loop #{}\n".format(i))
         print(f"l2_relative_error: {l2_error}")
 
     error = np.array(error)
-    dde.saveplot(losshistory, train_state, issave=True, isplot=False)
+    dde.saveplot(losshistory, train_state, issave=False, isplot=True)
+
+    del model
+    
     return error, l2_error
 
 
 if __name__ == "__main__":
     time_cost = []
     error = []
-    for n in range(2):
+    for n in range(1):
         start_t = time.time()
-        _, error1 = main(c=2, k=0)
+        _, error1 = main(c=20, k=0)
         error.append(error1)
         time_cost.append((time.time() - start_t))
 
@@ -103,5 +107,5 @@ if __name__ == "__main__":
         )
         print("Time taken: {:.02f}s".format(time.time() - start_t))
     error = np.array(error)
-    np.savetxt(f"results/raw/error_and_time/time_RAR-D_default3.txt", time_cost)
-    np.savetxt(f"results/raw/error_and_time/error_RAR-D_default3.txt", error)
+    # np.savetxt(f"results/raw/error_and_time/time_RAR-D_default3.txt", time_cost)
+    # np.savetxt(f"results/raw/error_and_time/error_RAR-D_default3.txt", error)
