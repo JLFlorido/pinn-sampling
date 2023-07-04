@@ -2,6 +2,7 @@ import deepxde as dde
 import numpy as np
 from deepxde.backend import tf
 import time
+import pdb
 
 dde.config.set_default_float("float64")
 dde.optimizers.config.set_LBFGS_options(maxiter=1000)
@@ -70,14 +71,17 @@ def main(k, c):
             a=len(X), size=((NumDomain//200)*19), replace=False, p=err_eq_normalized
         )
         X_selected=X[X_ids]
-        data.add_anchors(X_selected)
+        pdb.set_trace()
+        data.add_anchors(X_selected) 
 
         print("Adam going for 1000")
         model.compile("adam", lr=0.001)
+        #
         model.train(epochs=1000)
         print("L-BFGS going for 1000")
         model.compile("L-BFGS")
         losshistory, train_state = model.train()
+        #Inspect Train_state and whether it updates appropriately
 
         y_pred = model.predict(X_test)
         l2_error = dde.metrics.l2_relative_error(y_true, y_pred)

@@ -10,7 +10,9 @@
       "title": "Switch to Linux Computer"
     }
   ],
-  "in-progress": [
+  "in-progress": [],
+  "testing": [],
+  "done": [
     {
       "assignedTo": {
         "name": "Jose Florido"
@@ -28,20 +30,7 @@
       "id": "2",
       "references": [],
       "title": "Design Experiments"
-    }
-  ],
-  "testing": [
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
-      "creation_time": "2023-04-17T13:48:33.453Z",
-      "id": "5",
-      "references": [],
-      "title": "Begin running investigations"
-    }
-  ],
-  "done": [
+    },
     {
       "assignedTo": {
         "name": "Jose Florido"
@@ -50,6 +39,15 @@
       "id": "1",
       "references": [],
       "title": "Predict onto grid and plot"
+    },
+    {
+      "assignedTo": {
+        "name": "Jose Florido"
+      },
+      "creation_time": "2023-04-17T13:48:33.453Z",
+      "id": "5",
+      "references": [],
+      "title": "Begin running investigations"
     }
   ]
 }
