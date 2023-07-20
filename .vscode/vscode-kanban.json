@@ -4,50 +4,42 @@
       "assignedTo": {
         "name": "Jose Florido"
       },
+      "creation_time": "2023-07-20T10:57:28.842Z",
+      "id": "5",
+      "references": [],
+      "title": "Debug vanilla RAR-D method"
+    }
+  ],
+  "in-progress": [
+    {
+      "assignedTo": {
+        "name": "Jose Florido"
+      },
+      "creation_time": "2023-07-20T10:57:53.031Z",
+      "id": "6",
+      "references": [],
+      "title": "Adjust PINN for faster solution"
+    },
+    {
+      "assignedTo": {
+        "name": "Jose Florido"
+      },
+      "creation_time": "2023-07-20T10:58:09.758Z",
+      "id": "7",
+      "references": [],
+      "title": "Plot sol-gradients halfway through solve"
+    }
+  ],
+  "testing": [
+    {
+      "assignedTo": {
+        "name": "Jose Florido"
+      },
       "creation_time": "2023-04-04T14:13:06.186Z",
       "id": "4",
       "references": [],
       "title": "Switch to Linux Computer"
     }
   ],
-  "in-progress": [],
-  "testing": [],
-  "done": [
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
-      "creation_time": "2023-04-04T13:48:34.670Z",
-      "id": "3",
-      "references": [],
-      "title": "Adaptive Strategies Brainstorm"
-    },
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
-      "creation_time": "2023-04-04T13:48:14.918Z",
-      "id": "2",
-      "references": [],
-      "title": "Design Experiments"
-    },
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
-      "creation_time": "2023-04-04T13:47:45.599Z",
-      "id": "1",
-      "references": [],
-      "title": "Predict onto grid and plot"
-    },
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
-      "creation_time": "2023-04-17T13:48:33.453Z",
-      "id": "5",
-      "references": [],
-      "title": "Begin running investigations"
-    }
-  ]
+  "done": []
 }
