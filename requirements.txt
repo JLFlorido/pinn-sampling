@@ -1,5 +1,6 @@
+python<=3.10
+tensorflow #conda install tensorflow, needs python = 3.10 or less
+torch #conda install pytorch torchvision torchaudio cpuonly -c pytorch # for cpu
 deepxde # conda install -c conda-forge deepxde
 numpy
 scipy
-tensorflow #conda install tensorflow, needs python = 3.10 or less
-torch #conda install pytorch torchvision torchaudio cpuonly -c pytorch # for cpu

@@ -1,4 +1,4 @@
-name: JPINN_env
+name: JPINN-env
 channels:
   - conda-forge
   - pytorch
@@ -178,4 +178,3 @@ dependencies:
   - zipp=3.11.0=py37haa95532_0
   - zlib=1.2.13=h8cc25b3_0
   - zstd=1.5.4=hd43e919_0
-prefix: C:\Users\mn17jilf\Anaconda3\envs\JPINN_env
