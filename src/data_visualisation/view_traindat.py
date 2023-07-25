@@ -5,6 +5,7 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
 # Import Data For Plot 1 and 2 (The scatter graph)
+fname_test = "results/raw/sol-sampling-test/residualsy.txt"
 # fname_test = "results/raw/test_and_train/test_Ham2k.dat"
 # fname_test2 = "results/raw/test_and_train/test_Ham5k.dat"
 # fname_test3 = "results/raw/test_and_train/test_Ham10k.dat"
@@ -13,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 test_state = np.loadtxt(fname_test, delimiter=" ", skiprows=1)
-
+fname_train = "results/raw/sol-sampling-test/residualsy.txt"
 # fname_train = "results/raw/test_and_train/train_Ham2k.dat"
 # fname_train2= "results/raw/test_and_train/train_Ham5k.dat"
 # fname_train3= "results/raw/test_and_train/train_Ham10k.dat"

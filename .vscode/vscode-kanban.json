@@ -15,15 +15,6 @@
       "assignedTo": {
         "name": "Jose Florido"
       },
-      "creation_time": "2023-07-20T10:57:53.031Z",
-      "id": "6",
-      "references": [],
-      "title": "Adjust PINN for faster solution"
-    },
-    {
-      "assignedTo": {
-        "name": "Jose Florido"
-      },
       "creation_time": "2023-07-20T10:58:09.758Z",
       "id": "7",
       "references": [],
@@ -35,11 +26,21 @@
       "assignedTo": {
         "name": "Jose Florido"
       },
+      "creation_time": "2023-07-20T10:57:53.031Z",
+      "id": "6",
+      "references": [],
+      "title": "Adjust PINN for faster solution"
+    }
+  ],
+  "done": [
+    {
+      "assignedTo": {
+        "name": "Jose Florido"
+      },
       "creation_time": "2023-04-04T14:13:06.186Z",
       "id": "4",
       "references": [],
       "title": "Switch to Linux Computer"
     }
-  ],
-  "done": []
+  ]
 }
