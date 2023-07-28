@@ -1,3 +1,8 @@
+""" RAD-sol-test.py
+
+This code is a modified copy of the original RAD, but with comments starting line 78 to obtain solution first gradients, through a function defined in lines 22-23.
+Made this copy here so can test higher gradients through hessian here too. The data is exported to txt and needs to be read with code in data_visualisation.
+"""
 import deepxde as dde
 import numpy as np
 from deepxde.backend import tf
@@ -16,18 +21,9 @@ def gen_testdata():
     return X, y
 
 def dudx(x,y):
-    return dde.grad.jacobian(y, x, i=0, j=0) # Known from example
+    return dde.grad.jacobian(y, x, i=0, j=0)
 # usage: du_dx = model.predict(X,operator=du_dx)
-def dudt(x,y):
-    return dde.grad.jacobian(y,x, i=0, j=1) # Known from example
-def du_xt(x,y):
-    return dde.grad.hessian(y,x,i=1,j=0) # Not known, inferred. Need to check i=0, j=1 is identical.
-def du_tx(x,y):
-    return dde.grad.hessian(y,x,i=0,j=1) # Not known, inferred. Checking
-def du_xx(x,y):
-    return dde.grad.hessian(y,x,i=0,j=0) # Known from example
-def du_tt(x,y):
-    return dde.grad.hessian(y,x,i=1,j=1) # Known from example
+
 def main(k, c):
     NumDomain = 1000
 
@@ -74,38 +70,18 @@ def main(k, c):
     error_hist = [l2_error]
     print(f"l2_relative_error: {l2_error}")
 
-    # ----------------------------------------------------------------------
+    # ---------------------------------------------------------------------- STUFF OF INTEREST STARTING HERE
 
     print("Now starts the resample loop")
     for i in range(5):
         X = geomtime.random_points(100000)
 
-        # First evaluation
-        du_dx = model.predict(X_test,operator=dudx)
-        du_dt = model.predict(X_test,operator=dudt)
-        hess_xx = model.predict(X_test,operator=du_xx)
-        hess_tt = model.predict(X_test,operator=du_tt)
-        hess_xt = model.predict(X_test,operator=du_xt)
-        hess_tx = model.predict(X_test,operator=du_tx)
-        output_dudx = np.hstack((X_test,du_dx))
-        output_dudt = np.hstack((X_test,du_dt))
-        output_hess_xx = np.hstack((X_test,hess_xx))
-        output_hess_tt = np.hstack((X_test,hess_tt))
-        output_hess_xt = np.hstack((X_test,hess_xt))
-        output_hess_tx = np.hstack((X_test,hess_tx))
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudx.txt", output_dudx)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudt.txt", output_dudt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xx.txt", output_hess_xx)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tt.txt", output_hess_tt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xt.txt", output_hess_xt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tx.txt", output_hess_tx)
-        
-        losshistory, train_state = model.train()
-        y_pred = model.predict(X_test)
-        l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        dde.saveplot(losshistory, train_state, issave=False, isplot=True)
-        quit()
-        # Original method.
+        # First evaluation Uncomment this to obtain output of gradients
+        # du_dx = model.predict(X_test,operator=dudx)
+        # output = np.hstack((X_test,du_dx))
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudx.txt", output)
+
+        # Original method. Uncomment to obtain output of residuals
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
         print(X.shape)
         print(Y.shape)
@@ -144,7 +120,7 @@ def main(k, c):
     del model
     return error_hist, l2_error
 
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------- STUFF OF INTEREST ABOVE
 
 if __name__ == "__main__":
 

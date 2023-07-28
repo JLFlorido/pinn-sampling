@@ -1,4 +1,5 @@
-# Quick function to load and plot best solution from test.data files
+# Quick function to load and plot loss vs iterations history from loss.dat files
+# Intended for comparing loss vs iterations of various different runs
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
