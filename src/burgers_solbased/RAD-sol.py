@@ -68,7 +68,9 @@ def main(k, c):
     model.train(epochs=5000) #15k originally
     print("About to train L-BFGS - Max should be 1000")
     model.compile("L-BFGS")  # This seems to be taking more than 1000
-    model.train()
+    # model.train()
+    losshistory, train_state = model.train() # To check burgers state pre-resample. This and line below. Delete later
+    dde.saveplot(losshistory, train_state, issave=False, isplot=True) # See above
     y_pred = model.predict(X_test)
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
     error_hist = [l2_error]
@@ -80,13 +82,13 @@ def main(k, c):
     for i in range(5):
         X = geomtime.random_points(100000)
 
-        # First evaluation
-        du_dx = model.predict(X_test,operator=dudx)
-        du_dt = model.predict(X_test,operator=dudt)
-        hess_xx = model.predict(X_test,operator=du_xx)
-        hess_tt = model.predict(X_test,operator=du_tt)
-        hess_xt = model.predict(X_test,operator=du_xt)
-        hess_tx = model.predict(X_test,operator=du_tx)
+        # This commented out code obtained gradients and curvature and saved it to check.
+        # du_dx = model.predict(X_test,operator=dudx)
+        # du_dt = model.predict(X_test,operator=dudt)
+        # hess_xx = model.predict(X_test,operator=du_xx)
+        # hess_tt = model.predict(X_test,operator=du_tt)
+        # hess_xt = model.predict(X_test,operator=du_xt)
+        # hess_tx = model.predict(X_test,operator=du_tx)
         # output_dudx = np.hstack((X_test,du_dx))
         # output_dudt = np.hstack((X_test,du_dt))
         # output_hess_xx = np.hstack((X_test,hess_xx))
@@ -99,45 +101,64 @@ def main(k, c):
         # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tt.txt", output_hess_tt)
         # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xt.txt", output_hess_xt)
         # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tx.txt", output_hess_tx)
-        # y_pred = model.predict(X_test)
-        # l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        # dde.saveplot(losshistory, train_state, issave=False, isplot=True)
 
-        # Original method.
+        # Original method. This code is how new points were selected originally from residual information
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        print(f"Res X shape: {X.shape}")
-        print(f"Res Y shape: {Y.shape}")
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        print(f"Res err_eq.shape: {err_eq.shape}")
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        print(f"Res err_eq_normalist shape: {err_eq_normalized.shape}")
         X_ids = np.random.choice(
             a=len(X), size=NumDomain, replace=False, p=err_eq_normalized
         )
-        print(f"X_ids.shape{X_ids.shape}")
         X_selected = X[X_ids]
+        np.savetxt(f"results/raw/sol-sampling-test/residuals.txt",X_selected)
 
-        # Using du/dx
-        Y = np.abs(model.predict(X, operator=du_dx)).astype(np.float64)
-        data.replace_with_anchors(X_selected)
-        print(f"grad X shape: {X.shape}")
-        print(f"grad Y shape: {Y.shape}")
-        err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        print(f"grad err_eq.shape: {err_eq.shape}")
-        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        print(f"grad err_eq_normalist shape: {err_eq_normalized.shape}")
-        X_ids = np.random.choice(
-            a=len(X), size=NumDomain, replace=False, p=err_eq_normalized
-        )
-        print(f"grad X_ids.shape{X_ids.shape}")
-        X_selected = X[X_ids]
+        # # Using du_dx
+        # Y = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_dudx.txt",X_selected)
+        # # Using du_dt
+        # Y = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_dudt.txt",X_selected)
+        # # Using u_xx
+        # Y = np.abs(model.predict(X, operator=du_xx)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_du_xx.txt",X_selected)
+        # # Using u_tt
+        # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_du_tt.txt",X_selected)
+        # # Using u_tx
+        # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_du_tx.txt",X_selected)
+        # # Using u_xt
+        # Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
+        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+        # X_selected = X[X_ids]
+        # np.savetxt(f"results/raw/sol-sampling-test/Points_du_xt.txt",X_selected)
 
         quit()
-        data.replace_with_anchors(X_selected)
-
         print("Adam going for 1000")
         model.compile("adam", lr=0.001)
-        model.train(epochs=1000)
+        
         print("L-BFGS going for up to 2000")
         model.compile("L-BFGS")
         losshistory, train_state = model.train()
@@ -149,7 +170,7 @@ def main(k, c):
         print(f"l2_relative_error: {l2_error}")
 
     error_hist = np.array(error_hist)
-    dde.saveplot(losshistory, train_state, issave=False, isplot=False)
+    dde.saveplot(losshistory, train_state, issave=False, isplot=True)
     # np.savetxt(f"error_RAD_k_{k}_c_{c}.txt", error)
     
     del model
@@ -179,8 +200,6 @@ if __name__ == "__main__":
  
     # Print error history shape to check it's correct and then save to file and print that all files have been saved
     error_hists = np.array(error_hists)
-    print(error_hists.shape)
-    print(error_hists)
     np.savetxt(f"results/raw/sol-sampling-test/RAD_RAND_k1c1_N1000_L10_allerrors.txt", error_hists)
     print("Files saved")
 
