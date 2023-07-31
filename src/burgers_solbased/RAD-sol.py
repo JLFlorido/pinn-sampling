@@ -21,9 +21,9 @@ def dudx(x,y):
 def dudt(x,y):
     return dde.grad.jacobian(y,x, i=0, j=1) # Known from example
 def du_xt(x,y):
-    return dde.grad.hessian(y,x,i=1,j=0) # Not known, inferred. Need to check i=0, j=1 is identical.
+    return dde.grad.hessian(y,x,i=1,j=0) # Not known, inferred. Checked and i=0, j=1 is identical.
 def du_tx(x,y):
-    return dde.grad.hessian(y,x,i=0,j=1) # Not known, inferred. Checking
+    return dde.grad.hessian(y,x,i=0,j=1) # Not known, inferred. Checking, is identical to above
 def du_xx(x,y):
     return dde.grad.hessian(y,x,i=0,j=0) # Known from example
 def du_tt(x,y):
@@ -87,42 +87,53 @@ def main(k, c):
         hess_tt = model.predict(X_test,operator=du_tt)
         hess_xt = model.predict(X_test,operator=du_xt)
         hess_tx = model.predict(X_test,operator=du_tx)
-        output_dudx = np.hstack((X_test,du_dx))
-        output_dudt = np.hstack((X_test,du_dt))
-        output_hess_xx = np.hstack((X_test,hess_xx))
-        output_hess_tt = np.hstack((X_test,hess_tt))
-        output_hess_xt = np.hstack((X_test,hess_xt))
-        output_hess_tx = np.hstack((X_test,hess_tx))
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudx.txt", output_dudx)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudt.txt", output_dudt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xx.txt", output_hess_xx)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tt.txt", output_hess_tt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xt.txt", output_hess_xt)
-        np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tx.txt", output_hess_tx)
-        
-        losshistory, train_state = model.train()
-        y_pred = model.predict(X_test)
-        l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        dde.saveplot(losshistory, train_state, issave=False, isplot=True)
-        quit()
+        # output_dudx = np.hstack((X_test,du_dx))
+        # output_dudt = np.hstack((X_test,du_dt))
+        # output_hess_xx = np.hstack((X_test,hess_xx))
+        # output_hess_tt = np.hstack((X_test,hess_tt))
+        # output_hess_xt = np.hstack((X_test,hess_xt))
+        # output_hess_tx = np.hstack((X_test,hess_tx))
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudx.txt", output_dudx)
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-dudt.txt", output_dudt)
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xx.txt", output_hess_xx)
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tt.txt", output_hess_tt)
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_xt.txt", output_hess_xt)
+        # np.savetxt(f"results/raw/sol-sampling-test/xtest-and-hess_tx.txt", output_hess_tx)
+        # y_pred = model.predict(X_test)
+        # l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
+        # dde.saveplot(losshistory, train_state, issave=False, isplot=True)
+
         # Original method.
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        print(X.shape)
-        print(Y.shape)
-        output2 = np.hstack((X,Y))
-        np.savetxt(f"results/raw/sol-sampling-test/residualsy.txt",output2)
+        print(f"Res X shape: {X.shape}")
+        print(f"Res Y shape: {Y.shape}")
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        print(err_eq.shape)
+        print(f"Res err_eq.shape: {err_eq.shape}")
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        print(err_eq_normalized.shape)
+        print(f"Res err_eq_normalist shape: {err_eq_normalized.shape}")
         X_ids = np.random.choice(
             a=len(X), size=NumDomain, replace=False, p=err_eq_normalized
         )
-        print(X_ids.shape)
+        print(f"X_ids.shape{X_ids.shape}")
         X_selected = X[X_ids]
+
+        # Using du/dx
+        Y = np.abs(model.predict(X, operator=du_dx)).astype(np.float64)
         data.replace_with_anchors(X_selected)
+        print(f"grad X shape: {X.shape}")
+        print(f"grad Y shape: {Y.shape}")
+        err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        print(f"grad err_eq.shape: {err_eq.shape}")
+        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        print(f"grad err_eq_normalist shape: {err_eq_normalized.shape}")
+        X_ids = np.random.choice(
+            a=len(X), size=NumDomain, replace=False, p=err_eq_normalized
+        )
+        print(f"grad X_ids.shape{X_ids.shape}")
+        X_selected = X[X_ids]
 
         quit()
+        data.replace_with_anchors(X_selected)
 
         print("Adam going for 1000")
         model.compile("adam", lr=0.001)
