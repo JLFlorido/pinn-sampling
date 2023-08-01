@@ -20,8 +20,8 @@ ax.scatter(
     case[:, 0],
     marker=".",
 )
-ax.set_xlabel("$x$")
-ax.set_ylabel("$t$")
+ax.set_xlabel("$t$")
+ax.set_ylabel("$x$")
 ax.set_ylim([-1, 1])
 ax.set_xlim([0, 1])
 
