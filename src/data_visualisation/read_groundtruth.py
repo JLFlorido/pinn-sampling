@@ -8,13 +8,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+# ----------------------------------------------- Load Ground Truth solution from .npz file -----------------------------------------------
 data = np.load("src/burgers/Burgers.npz")
 t, x, exact = data["t"], data["x"], data["usol"].T
 xx, tt = np.meshgrid(x, t)
 X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
-#print(X[:,0].shape) # This is -1 to 1, the spatial dimension (on y axis). 25600 long
-#print(X[:,1].shape) # This is 0 to 1, the time dimension (on x axis). 25600 long
+print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
+print(y.shape) # (25600,1) This is the second output of the gen_testdata() function
+# print(X[:,0].shape) # This is -1 to 1, the spatial dimension (on y axis). 25600 long
+# print(X[:,1].shape) # This is 0 to 1, the time dimension (on x axis). 25600 long
+# ----------------------------------------------- Calculating gradients and curvatures -----------------------------------------------
 dt = (1/100)
 dx = (2/256)
 
@@ -28,108 +32,110 @@ d2u_dt2_flat = d2u_dt2.flatten()[:,None]
 d2u_dtdx_flat = d2u_dtdx.flatten()[:,None]
 d2u_dxdt_flat = d2u_dxdt.flatten()[:,None]
 d2u_dx2_flat = d2u_dx2.flatten()[:,None]
+
 #print(du_dt_flat.shape) #25600 long
 #print(du_dx_flat.shape) #25600 long
 
-plt.figure(1)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    du_dt_flat,
-    c=du_dt_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$du/dt$ from Ground Truth, using 2nd order accurate FD")
+# ----------------------------------------------- 3D Plots of Ground Truth gradients and curvatures.-----------------------------------------------
+# plt.figure(1)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     du_dt_flat,
+#     c=du_dt_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$du/dt$ from Ground Truth, using 2nd order accurate FD")
 
-plt.figure(2)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    du_dx_flat,
-    c=du_dx_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$du/dx$ from Ground Truth, using 2nd order accurate FD")
+# plt.figure(2)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     du_dx_flat,
+#     c=du_dx_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$du/dx$ from Ground Truth, using 2nd order accurate FD")
 
-plt.figure(3)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dt2_flat,
-    c=d2u_dt2_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dt^2$ from Ground Truth, using 2nd order accurate FD")
+# plt.figure(3)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dt2_flat,
+#     c=d2u_dt2_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dt^2$ from Ground Truth, using 2nd order accurate FD")
 
-plt.figure(4)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dx2_flat,
-    c=d2u_dx2_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dx^2$ from Ground Truth, using 2nd order accurate FD")
+# plt.figure(4)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dx2_flat,
+#     c=d2u_dx2_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dx^2$ from Ground Truth, using 2nd order accurate FD")
 
-plt.figure(5)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dxdt_flat,
-    c=d2u_dxdt_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dxdt$ from Ground Truth, using 2nd order accurate FD")
+# plt.figure(5)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dxdt_flat,
+#     c=d2u_dxdt_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dxdt$ from Ground Truth, using 2nd order accurate FD")
 
-plt.figure(6)
-ax = plt.axes(projection=Axes3D.name)
-ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dtdx_flat,
-    c=d2u_dtdx_flat,
-    s=20,
-    cmap="coolwarm",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dtdtx$ from Ground Truth, using 2nd order accurate FD")
-plt.show()
+# plt.figure(6)
+# ax = plt.axes(projection=Axes3D.name)
+# ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dtdx_flat,
+#     c=d2u_dtdx_flat,
+#     s=20,
+#     cmap="coolwarm",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dtdtx$ from Ground Truth, using 2nd order accurate FD")
+# plt.show()

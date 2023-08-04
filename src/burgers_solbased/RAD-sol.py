@@ -1,3 +1,8 @@
+"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information.
+
+This is the original version of the code, and is able to be looped. However, there is an issue with memory and running beyond 3 exponentially increases the cost.
+It was used to test implementation of gradients/hessian and to obtain plots.
+"""
 import deepxde as dde
 import numpy as np
 from deepxde.backend import tf
@@ -202,4 +207,3 @@ if __name__ == "__main__":
     error_hists = np.array(error_hists)
     np.savetxt(f"results/raw/sol-sampling-test/RAD_RAND_k1c1_N1000_L10_allerrors.txt", error_hists)
     print("Files saved")
-
