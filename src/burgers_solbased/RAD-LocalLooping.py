@@ -166,7 +166,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
                  loss_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
                  train_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
                  test_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-                 output_dir="./results/raw/testing_folder")
+                 output_dir="./results/raw/additional_info")
     time_taken = (time.time()-start_t)
     return error_hist, error_final, time_taken
 # ----------------------------------------------------------------------
@@ -179,7 +179,8 @@ def main():
     time_taken_list = []
     error_hist_list = []
     error_final_list = []
-    for repeat in range(1):  
+    
+    for repeat in range(10):  
         error_hist, error_final, time_taken = apply(jpinn, (c, k, NumDomain, NumResamples)) # Run main, record error history and final accuracy.
         time_taken_list.append(time_taken)
         error_final_list.append(error_final)
@@ -187,7 +188,7 @@ def main():
         print(f"number {repeat+1} done, took {time_taken} seconds")
 
     # Define output directory and file names. Should come from doc opts further on.
-    output_dir = "./results/"  # Replace with your desired output directory path
+    output_dir = "./results/performance_results"  # Replace with your desired output directory path
     error_hist_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
     error_final_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
     time_taken_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
