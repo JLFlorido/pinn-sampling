@@ -91,25 +91,43 @@ cbar2 = plt.colorbar(scatter2, ax=ax2)
 cbar2.set_label('Error')
 ax2.set_xlabel('t')
 ax2.set_ylabel('x')
-ax2.set_title('Error, average of 10 cases')
+ax2.set_title('Error, average of 10 runs')
 plt.tight_layout()
 
+# Figure 2
 fig2, (ax3, ax4) = plt.subplots(1, 2, figsize=(12, 5))
 
-scatter3 = ax3.scatter(X[:25599, 1], X[:25599, 0], c=case0, cmap='coolwarm',vmax=1)
+scatter3 = ax3.scatter(X[:25599, 1], X[:25599, 0], c=res_average, cmap='coolwarm',vmax=4)
 cbar3 = plt.colorbar(scatter3, ax=ax3)
 cbar3.set_label('Residual case 0')
 ax3.set_xlabel('t')
 ax3.set_ylabel('x')
-ax3.set_title('Case 0')
+ax3.set_title('Residual, average of 10 runs')
 
-scatter4 = ax4.scatter(X[:25599, 1], X[:25599, 0], c=u_error0, cmap='coolwarm',vmax=1)
+scatter4 = ax4.scatter(X[:25599, 1], X[:25599, 0], c=u_diff1, cmap='coolwarm',vmax=4)
 cbar4 = plt.colorbar(scatter4, ax=ax4)
 cbar4.set_label('Error')
 ax4.set_xlabel('t')
 ax4.set_ylabel('x')
-ax4.set_title('Error case 0')
+ax4.set_title('Error, average of 10 runs')
+plt.tight_layout()
 
+# Figure 3
+fig3, (ax5, ax6) = plt.subplots(1, 2, figsize=(12, 5))
+
+scatter5 = ax5.scatter(X[:25599, 1], X[:25599, 0], c=res_average, cmap='coolwarm')
+cbar5 = plt.colorbar(scatter5, ax=ax5)
+cbar5.set_label('Residual case 0')
+ax5.set_xlabel('t')
+ax5.set_ylabel('x')
+ax5.set_title('Residual, average of 10 runs')
+
+scatter6 = ax6.scatter(X[:25599, 1], X[:25599, 0], c=u_diff1, cmap='coolwarm')
+cbar6 = plt.colorbar(scatter6, ax=ax6)
+cbar6.set_label('Error')
+ax6.set_xlabel('t')
+ax6.set_ylabel('x')
+ax6.set_title('Error, average of 10 runs')
 plt.tight_layout()
 
 print(max(u_error0))
