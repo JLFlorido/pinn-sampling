@@ -1,7 +1,5 @@
-"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information.
-
-This version of the code has been adjusted to run once, read a corresponding results file and append results to it. 
-If the results file doesn't exist, it creates it before appending the results.
+"""RAD-Local.py Run PINN locally using apply() method, allowing to loop without memory issues. 
+Solves Burger's Equation using adaptive resampling (RAD) based on either residuals or gradient/curvature information.
 """
 import deepxde as dde
 import numpy as np
