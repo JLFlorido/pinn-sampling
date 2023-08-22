@@ -7,15 +7,16 @@ from numpy import load
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.interpolate import RegularGridInterpolator
 
 # ----------------------------------------------- Load Ground Truth solution from .npz file -----------------------------------------------
-data = np.load("src/burgers/Burgers.npz")
-t, x, exact = data["t"], data["x"], data["usol"].T
+data = np.load("src/burgers_solbased/Burgers.npz")
+t, x, exact = data["t"], data["x"], data["usol"].T # t is (100,1). x is (256, 1). u is (100,256)
 xx, tt = np.meshgrid(x, t)
 X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
-print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
-print(y.shape) # (25600,1) This is the second output of the gen_testdata() function
+# print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
+# print(y.shape) # (25600,1) This is the second output of the gen_testdata() function
 # print(X[:,0].shape) # This is -1 to 1, the spatial dimension (on y axis). 25600 long
 # print(X[:,1].shape) # This is 0 to 1, the time dimension (on x axis). 25600 long
 # ----------------------------------------------- Calculating gradients and curvatures -----------------------------------------------
@@ -35,6 +36,23 @@ d2u_dx2_flat = d2u_dx2.flatten()[:,None]
 
 #print(du_dt_flat.shape) #25600 long
 #print(du_dx_flat.shape) #25600 long
+x = [-1, -0.5, 0, 0.5, 1]
+t = [ 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+y = np.array([
+    [0,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+    [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+    [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+    [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+    [41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+])
+itp = RegularGridInterpolator( (x, t), y, method='linear')
+points = np.array([
+    [0, 0.4],
+    [0, 0.45],
+    [0, 0.5]
+])
+res = itp(points)
+print(res)
 
 # ----------------------------------------------- 3D Plots of Ground Truth gradients and curvatures.-----------------------------------------------
 # plt.figure(1)
