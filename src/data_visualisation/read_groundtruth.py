@@ -36,21 +36,34 @@ d2u_dx2_flat = d2u_dx2.flatten()[:,None]
 
 #print(du_dt_flat.shape) #25600 long
 #print(du_dx_flat.shape) #25600 long
-x = [-1, -0.5, 0, 0.5, 1]
-t = [ 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-y = np.array([
-    [0,  1,  2,  3,  4,  5,  6,  7,  8,  9],
-    [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-    [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-    [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
-    [41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
-])
-itp = RegularGridInterpolator( (x, t), y, method='linear')
-points = np.array([
-    [0, 0.4],
-    [0, 0.45],
-    [0, 0.5]
-])
+x=np.squeeze(x)
+t=np.squeeze(t)
+exact=np.squeeze(exact)
+print(x.shape)
+print(t.shape)
+print(exact.shape)
+# x = np.array([-1, -0.5, 0, 0.5, 1])
+# t = np.array([ 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+# exact = np.array([
+#     [0,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+#     [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+#     [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+#     [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+#     [41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+# ])
+
+# print(x.shape)
+# print(t.shape)
+# print(exact.shape)
+itp = RegularGridInterpolator( (t, x), exact, method='nearest', bounds_error=False, fill_value=None)
+
+points = np.array([[-0.990, 0.9],
+                 [-0.001, 0.91112437],
+                 [0.5064721, 0.97652539],
+                 [-0.5064721, 0.97652539],
+                 [0.39936939, 0.5225982 ],
+                 [-0.39936939, 0.5225982]])
+points = points[:,[1, 0]]
 res = itp(points)
 print(res)
 

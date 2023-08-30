@@ -37,13 +37,8 @@ def gen_testdata(): # This function opens the ground truth solution. Need to cha
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = exact.flatten()[:, None]
-    return X, y
-
-def gen_interpolator(): # This function creates interpolator that takes in points and outputs u.
-    data = np.load("./Burgers.npz")
-    t, x, exact = data["t"], data["x"], data["usol"].T
     itp = RegularGridInterpolator( (x, t), exact, method='linear')
-    return itp
+    return X, y, itp
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
     space = [(-1.0, 1.0), (0.0, 1.0)]
@@ -84,12 +79,13 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Co
     def du_xt(x,y): # Returns curvature in xt
         return dde.grad.hessian(y,x,i=1,j=0)
 
-    X_test, y_true = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
+    X_test, y_true, itp = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
 
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     geom = dde.geometry.Interval(-1, 1)
     timedomain = dde.geometry.TimeDomain(0, 1)
     geomtime = dde.geometry.GeometryXTime(geom, timedomain)
+
     if method == "Grid":
         data = dde.data.TimePDE(
             geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
@@ -116,11 +112,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Co
         return -tf.sin(np.pi * x[:, 0:1]) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
     net.apply_output_transform(output_transform)
 
-    print(model.data.anchors)
-    print(model.data.anchors.shape)
-    print(X_test.shape)
-    quit()
-    # Initial Training before resampling
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
