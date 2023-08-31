@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import RegularGridInterpolator
+import deepxde as dde
 
 # ----------------------------------------------- Load Ground Truth solution from .npz file -----------------------------------------------
 data = np.load("src/burgers_solbased/Burgers.npz")
@@ -15,6 +16,8 @@ t, x, exact = data["t"], data["x"], data["usol"].T # t is (100,1). x is (256, 1)
 xx, tt = np.meshgrid(x, t)
 X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
+print(y)
+print("THIS IS Y ^^^")
 # print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
 # print(y.shape) # (25600,1) This is the second output of the gen_testdata() function
 # print(X[:,0].shape) # This is -1 to 1, the spatial dimension (on y axis). 25600 long
@@ -67,6 +70,12 @@ points = points[:,[1, 0]]
 res = itp(points)
 print(res)
 
+y_pred_local =  np.array([[ 0.0064253], [ 0.34632166], [-0.37742235], [ 0.37742235], [-0.69042899], [ 0.69042899]]) 
+y_pred_local = [x[0] for x in y_pred_local]
+print(y_pred_local)
+y_true_local = res
+l2_error_local = dde.metrics.l2_relative_error(y_true_local, y_pred_local)
+print(l2_error_local)
 # ----------------------------------------------- 3D Plots of Ground Truth gradients and curvatures.-----------------------------------------------
 # plt.figure(1)
 # ax = plt.axes(projection=Axes3D.name)
