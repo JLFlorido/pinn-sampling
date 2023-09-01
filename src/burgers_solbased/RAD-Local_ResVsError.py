@@ -1,4 +1,4 @@
-"""RAD-Local_LooseEnd1.py
+"""RAD-Local_ResVsError.py
 This code is an adaption that only cares about the first 15k iterations, as it wants to look at the PDE residual at this point and the actual error in the field before any resampling.
 It should make jpinn take repeat as an argument, and use it to save a different file each time.
 Should output u to a grid that's the same size as burgers.npz (100x256) (time * space)
