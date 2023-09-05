@@ -140,15 +140,15 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Co
         X = geomtime.random_points(100000)
 
         # --- Below, all the different info sources for resampling. Comment out the ones you won't use ---
-        Y = np.abs(model.predict(X, operator=pde)).astype(np.float64) # 1 Using residual
-        # Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64) # 2 Using du_dx
-        # Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64) # 3 Using du_dt
+        # Y = np.abs(model.predict(X, operator=pde)).astype(np.float64) # 1 Using residual
+        Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64) # 2 Using du_dx
+        Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64) # 3 Using du_dt
         # Y = np.abs(model.predict(X, operator=du_xx)).astype(np.float64) # 4 Using u_xx
         # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64) # 5 Using u_tt
         # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64) # 6 Using u_tx
         # Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64) # 7 Using u_xt 
         # Y = (Y1+Y2)
-        # Y = np.maximum(Y1,Y2)
+        Y = np.maximum(Y1,Y2)
         # Y = np.sqrt((Y1**2)+(Y2**2))
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]

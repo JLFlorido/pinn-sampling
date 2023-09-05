@@ -1,4 +1,4 @@
-"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
+"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on loss and then gradient/curvature information. 
 RAD-HPC. This version runs once and appends results to a file reflecting the inputs arguments.
 
 Usage:
@@ -136,20 +136,10 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Co
     print("Finished initial steps. ")
     print(f"l2_relative_error: {l2_error}")
 
-    for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
+    # Youre looking at loop 1
+    for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
-
-        # --- Below, all the different info sources for resampling. Comment out the ones you won't use ---
         Y = np.abs(model.predict(X, operator=pde)).astype(np.float64) # 1 Using residual
-        # Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64) # 2 Using du_dx
-        # Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64) # 3 Using du_dt
-        # Y = np.abs(model.predict(X, operator=du_xx)).astype(np.float64) # 4 Using u_xx
-        # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64) # 5 Using u_tt
-        # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64) # 6 Using u_tx
-        # Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64) # 7 Using u_xt 
-        # Y = (Y1+Y2)
-        # Y = np.maximum(Y1,Y2)
-        # Y = np.sqrt((Y1**2)+(Y2**2))
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -169,13 +159,47 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Co
         error_hist.append(l2_error)
         print("!\nFinished loop #{}\n".format(i+1))
         print(f"l2_relative_error: {l2_error}")
+    
+    # You're looking at loop 2
+    for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
+            X = geomtime.random_points(100000)
+            # --- Below, all the different info sources for resampling. Comment out the ones you won't use ---
+            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64) # 2 Using du_dx
+            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64) # 3 Using du_dt
+            # Y = np.abs(model.predict(X, operator=du_xx)).astype(np.float64) # 4 Using u_xx
+            # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64) # 5 Using u_tt
+            # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64) # 6 Using u_tx
+            # Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64) # 7 Using u_xt 
+            # Y = (Y1+Y2)
+            Y = np.maximum(Y1,Y2)
+            # Y = np.sqrt((Y1**2)+(Y2**2))
+
+            err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+            err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+            X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
+            X_selected = X[X_ids]
+
+            data.replace_with_anchors(X_selected) # Change current points with selected X points
+
+            # print("1000 Adam Steps")
+            model.compile("adam", lr=0.001)
+            model.train(epochs=1000)
+            # print("LBFG-S Steps")
+            model.compile("L-BFGS")
+            losshistory, train_state = model.train()
+
+            y_pred = model.predict(X_test)
+            l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
+            error_hist.append(l2_error)
+            print("!\nFinished loop #{}\n".format(i+1))
+            print(f"l2_relative_error: {l2_error}")
 
     error_final = l2_error
     error_hist = np.array(error_hist)
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="../results/additional_info")
     time_taken = (time.time()-start_t)
     return error_hist, error_final, time_taken
@@ -200,9 +224,9 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_hist_fname = f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
-    error_final_fname = f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"RAD_uxut1_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_hist_fname = f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
+    error_final_fname = f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"RAD_loss-uxut3_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

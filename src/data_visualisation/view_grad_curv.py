@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 #                   2k
-# fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # Residuals
-# fname2 = "results/raw/grad_curvature_estimates/gc1_ux.txt" # Jacobian, dudx
-# fname3 = "results/raw/grad_curvature_estimates/gc1_ut.txt" # Jacobian, dudt
-# fname4 = "results/raw/grad_curvature_estimates/gc1_uxx.txt" # Hessian, dxx
-# fname5 = "results/raw/grad_curvature_estimates/gc1_utt.txt" # Hessian, dtt
-# fname6 = "results/raw/grad_curvature_estimates/gc1_uxt.txt" # Hessian, dxt
+fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # x,t coordinates
+fname2 = "results/raw/grad_curvature_estimates/gc1_ux.txt" # Jacobian, dudx
+fname3 = "results/raw/grad_curvature_estimates/gc1_ut.txt" # Jacobian, dudt
+fname4 = "results/raw/grad_curvature_estimates/gc1_uxx.txt" # Hessian, dxx
+fname5 = "results/raw/grad_curvature_estimates/gc1_utt.txt" # Hessian, dtt
+fname6 = "results/raw/grad_curvature_estimates/gc1_uxt.txt" # Hessian, dxt
 
 #                   15k
-# fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # Residuals
+# fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # x,t coordinates
 # fname2 = "results/raw/grad_curvature_estimates/gc2_ux.txt" # Jacobian, dudx
 # fname3 = "results/raw/grad_curvature_estimates/gc2_ut.txt" # Jacobian, dudt
 # fname4 = "results/raw/grad_curvature_estimates/gc2_uxx.txt" # Hessian, dxx
@@ -22,12 +22,12 @@ from mpl_toolkits.mplot3d import Axes3D
 # fname6 = "results/raw/grad_curvature_estimates/gc2_uxt.txt" # Hessian, dxt
 
 #                   End
-fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # Residuals
-fname2 = "results/raw/grad_curvature_estimates/gc3_ux.txt" # Jacobian, dudx
-fname3 = "results/raw/grad_curvature_estimates/gc3_ut.txt" # Jacobian, dudt
-fname4 = "results/raw/grad_curvature_estimates/gc3_uxx.txt" # Hessian, dxx
-fname5 = "results/raw/grad_curvature_estimates/gc3_utt.txt" # Hessian, dtt
-fname6 = "results/raw/grad_curvature_estimates/gc3_uxt.txt" # Hessian, dxt
+# fname1 = "results/raw/grad_curvature_estimates/gc_coords.txt" # x,t coordinates
+# fname2 = "results/raw/grad_curvature_estimates/gc3_ux.txt" # Jacobian, dudx
+# fname3 = "results/raw/grad_curvature_estimates/gc3_ut.txt" # Jacobian, dudt
+# fname4 = "results/raw/grad_curvature_estimates/gc3_uxx.txt" # Hessian, dxx
+# fname5 = "results/raw/grad_curvature_estimates/gc3_utt.txt" # Hessian, dtt
+# fname6 = "results/raw/grad_curvature_estimates/gc3_uxt.txt" # Hessian, dxt
 
 case1 = np.loadtxt(fname1, delimiter=" ", skiprows=1)
 case2 = np.loadtxt(fname2, delimiter=" ", skiprows=1)
@@ -61,12 +61,12 @@ p0 = ax.scatter3D(
     case2,
     c=case2,
     marker=".",
-    s=20,
+    s=15,
     cmap="viridis",
 )
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
-ax.set_title("$du/dx$")
+ax.set_title("$du/dx$, 2k Steps")
 Axes3D.view_init(ax,elev=90,azim=0)
 plt.tight_layout()
 fig0.colorbar(p0)
@@ -79,12 +79,12 @@ p1 = ax.scatter3D(
     case3,
     c=case3,
     marker=".",
-    s=20,
+    s=15,
     cmap="viridis",
 )
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
-ax.set_title("$du/dt$")
+ax.set_title("$du/dt$, 2k Steps")
 Axes3D.view_init(ax,elev=90,azim=0)
 plt.tight_layout()
 fig1.colorbar(p1)
@@ -97,12 +97,12 @@ p2 = ax.scatter3D(
     case4,
     c=case4,
     marker=".",
-    s=20,
+    s=15,
     cmap="viridis",
 )
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
-ax.set_title("$d^2u/dx^2$")
+ax.set_title("$d^2u/dx^2$, 2k Steps")
 Axes3D.view_init(ax,elev=90,azim=0)
 plt.tight_layout()
 fig2.colorbar(p2)
@@ -115,12 +115,12 @@ p3 = ax.scatter3D(
     case5,
     c=case5,
     marker=".",
-    s=20,
+    s=15,
     cmap="viridis",
 )
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
-ax.set_title("$d^2u/dt^2$")
+ax.set_title("$d^2u/dt^2$, 2k Steps")
 Axes3D.view_init(ax,elev=90,azim=0)
 plt.tight_layout()
 fig3.colorbar(p3)
@@ -133,12 +133,12 @@ p4 = ax.scatter3D(
     case6,
     c=case6,
     marker=".",
-    s=20,
+    s=15,
     cmap="viridis",
 )
 ax.set_xlabel("$x$")
 ax.set_ylabel("$t$")
-ax.set_title("$d^2u/dxdt$")
+ax.set_title("$d^2u/dxdt$, 2k Steps")
 Axes3D.view_init(ax,elev=90,azim=0)
 plt.tight_layout()
 fig4.colorbar(p4)
