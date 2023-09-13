@@ -41,7 +41,7 @@ def gen_testdata(): # This function opens the ground truth solution. Need to cha
     return X, y, itp
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
-    space = [(-1.0, 1.0), (0.0, 1.0)]
+    space = [(-1.0, 1.0), (0.0, 0.99)]
     if sampler == "LHS":
         sampler = skopt.sampler.Lhs(
             lhs_type="centered", criterion="maximin", iterations=1000
@@ -109,7 +109,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
             anchors=sample_pts,
         )
 
-    net = dde.maps.FNN([2] + [64] * 3 + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
+    net = dde.maps.FNN([2] + [64] * 2 + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
 
     def output_transform(x, y):
         return -tf.sin(np.pi * x[:, 0:1]) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
@@ -186,9 +186,9 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
     step_hist = np.array(step_hist)
 
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="./testing_folder/losses")
     time_taken = (time.time()-start_t)
     return error_hist, error_hist_local, step_hist, error_final, time_taken
@@ -217,11 +217,11 @@ def main():
 
     # Define output directory and file names. Should come from doc opts further on.
     output_dir = "./testing_folder/losses"  # Replace with your desired output directory path
-    error_hist_fname = f"RAD_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
-    error_hist_local_fname = f"RAD_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist_local.txt"
-    step_hist_fname = f"RAD_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_step_hist.txt"
-    error_final_fname = f"RAD_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"RAD_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_hist_fname = f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
+    error_hist_local_fname = f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist_local.txt"
+    step_hist_fname = f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_step_hist.txt"
+    error_final_fname = f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"Convergence_2layer_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
