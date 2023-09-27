@@ -1,3 +1,4 @@
 results/raw
 .vscode/vscode-kanban.json
 *.csv
+./testing_folder
