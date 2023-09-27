@@ -14,7 +14,17 @@ print("Keys in the .npz file:", data.files)
 key_name = 't'
 if key_name in data:
     print(f"Content of '{key_name}':")
-    print(data[key_name])
+    print(data[key_name].shape)
+else:
+    print(f"Key '{key_name}' not found in the .npz file.")
+
+key_name = 'x'
+if key_name in data:
+    print(f"Content of '{key_name}':")
+    a= data[key_name]
+    print(a[0:2])
+    print(a[2030:2051])
+    print(a[4079:4081])
 else:
     print(f"Key '{key_name}' not found in the .npz file.")
 

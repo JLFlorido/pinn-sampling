@@ -1,10 +1,13 @@
-Modification of Wu code, using solution gradients.
-Started from code in 'burgers' folder:
-    Need to check filepaths and filenames are updated to not refer to old folder.
-    At some point will have to investigate docopts and adjust this to work in arc.
-For now, focus is on using RAD.py:
-    Simplify so it runs quickly.
-    Figure out how to obtain u-gradients
-    Test by trying to plot " after initial training phase.
-    Then substitute residual info with u-gradients in resampling.
-        " Could get exaggerated u-gradient info input manually to test if point resampling working as intended.
+Script Description:
+   REP*.py = Replacement of points
+   REF*.py = Refining of points. Keeping old ones and adding new ones.
+   *_errors.py = Saves step, error and error at collocation points throughout simulation.
+   *Local.py = Runs locally, parameters defined within code.
+   *HPC.py = Set to run on hpc, hyper parameters defined with job script.
+   GradCurvEstimates.py was a specific code that plotted the gradient estimates...
+   ... at different steps. Was used to evaluate ability of NN to rpedict gradient.
+   ResVsError.py produced data to compare error in u to residual before resampling occured.
+
+Current work:
+   Modify _errors.py scripts so that they output data in columns. Use np.vstack
+   Modify errors to use new ground truth.

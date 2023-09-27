@@ -1,16 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-print(tf.config.list_physical_devices('GPU'))
-quit()
-"""
-Create a Tensorflow Session
-    
-"""
-
-gpu_device = tf.config.list_physical_devices('GPU')[0]
-tf.config.experimental.set_memory_growth(gpu_device, True)
-
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 
 """
