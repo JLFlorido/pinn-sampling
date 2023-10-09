@@ -7,6 +7,7 @@ from deepxde.backend import tf
 import time
 import os
 from multiprocessing import Pool
+from scipy.interpolate import RegularGridInterpolator
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
@@ -29,12 +30,16 @@ def apply(func,args=None,kwds=None):
     return r
 
 def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
-    data = np.load("./Burgers.npz")
-    t, x, exact = data["t"], data["x"], data["usol"].T
+    data = np.load("./Burgers2.npz")
+    t, x, exact = data["t"], data["x"], data["exact"].T
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = exact.flatten()[:, None]
-    return X, y
+    x=np.squeeze(x)
+    t=np.squeeze(t)
+    exact=np.squeeze(exact)
+    itp = RegularGridInterpolator( (t, x), exact, method='linear', bounds_error=False, fill_value=None)
+    return X, y, itp
 
 def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
     # NumDomain = 2000 # Number of collocation points
@@ -58,7 +63,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
     # def du_tt(x,y): # Returns curvature in tt
     #     return dde.grad.hessian(y,x,i=1,j=1)
 
-    X_test, y_true = gen_testdata() # (25600,2) coordinates and corresponding (25600,1) values of u.
+    X_test, y_true, itp = gen_testdata() # (25600,2) coordinates and corresponding (25600,1) values of u.
 
     geom = dde.geometry.Interval(-1, 1)
     timedomain = dde.geometry.TimeDomain(0, 1)
@@ -83,7 +88,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000)
+    model.train(epochs=500) #1500
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
     model.train()
@@ -98,51 +103,17 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
 
     for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
+        # need to change this to be a prediction at x and then an interpolation of ground truth at X()
+        # Using error to guide resampling
+        y_true_resample = itp(X[:,[1,0]])
+        
+        y_pred = model.predict(X)
+        y_pred = np.squeeze(y_pred)
+        Y = np.abs(y_true_resample -y_pred)
 
-        # --- Below, all the different info sources for resampling. Comment out the ones you won't use --- 
-        # Original method. This code is how new points were selected originally from residual information
-        # Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # # Using du_dx
-        # Y = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # # Using du_dt
-        # Y = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # # Using u_xx
-        # Y = np.abs(model.predict(X, operator=du_xx)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # # Using u_tt
-        # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # # Using u_tx
-        # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64)
-        # err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        # err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        # X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        # X_selected = X[X_ids]
-        # Using u_xt
-        Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        print(Y.shape)
-        print("HERE")
-        quit()
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        err_eq_normalized = (err_eq / sum(err_eq))[:]
+
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
 
@@ -164,9 +135,9 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
     error_final = l2_error
     error_hist = np.array(error_hist)
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="./results/raw/additional_info")
     time_taken = (time.time()-start_t)
     return error_hist, error_final, time_taken
@@ -175,13 +146,13 @@ def main():
     # define variables
     c=1
     k=1
-    NumDomain=2000
-    NumResamples=100
+    NumDomain=200
+    NumResamples=1
     time_taken_list = []
     error_hist_list = []
     error_final_list = []
     
-    for repeat in range(10):  
+    for repeat in range(1):  
         error_hist, error_final, time_taken = apply(jpinn, (c, k, NumDomain, NumResamples)) # Run main, record error history and final accuracy.
         time_taken_list.append(time_taken)
         error_final_list.append(error_final)
@@ -189,10 +160,10 @@ def main():
         print(f"number {repeat+1} done, took {time_taken} seconds")
 
     # Define output directory and file names. Should come from doc opts further on.
-    output_dir = "./results/performance_results"  # Replace with your desired output directory path
-    error_hist_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
-    error_final_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"RAD_RAND_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    output_dir = "./results/raw/performance_results"  # Replace with your desired output directory path
+    error_hist_fname = f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
+    error_final_fname = f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"REP_gt_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
