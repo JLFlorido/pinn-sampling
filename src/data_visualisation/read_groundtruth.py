@@ -11,8 +11,10 @@ from scipy.interpolate import RegularGridInterpolator
 import deepxde as dde
 
 # ----------------------------------------------- Load Ground Truth solution from .npz file -----------------------------------------------
-data = np.load("src/burgers_solbased/Burgers.npz")
-t, x, exact = data["t"], data["x"], data["usol"].T # t is (100,1). x is (256, 1). u is (100,256)
+data = np.load("src/burgers_solbased/Burgers2.npz")
+t, x, exact = data["t"], data["x"], data["exact"] #if "exact" dont work its "usol" # t is (100,1). x is (256, 1). u is (100,256)
+x0=x
+u=exact
 xx, tt = np.meshgrid(x, t)
 X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
@@ -78,125 +80,136 @@ d2u_dx2_flat = np.abs(d2u_dx2.flatten()[:,None])
 # y_true_local = res
 # l2_error_local = dde.metrics.l2_relative_error(y_true_local, y_pred_local)
 # print(l2_error_local)
+# -------------------- print ground truth burgers
+fig = plt.figure(figsize=(7, 4))
+plt.pcolormesh(t, x0, u, cmap="rainbow")
+plt.xlabel("t")
+plt.ylabel("x")
+cbar = plt.colorbar(pad=0.05, aspect=10)
+cbar.set_label("u(t,x)")
+cbar.mappable.set_clim(-1, 1)
+plt.savefig("high_def_image.png", dpi=300)
+plt.show()
+
 # ----------------------------------------------- 3D Plots of Ground Truth gradients and curvatures.-----------------------------------------------
 
-fig1 = plt.figure(1)
-ax = plt.axes(projection=Axes3D.name)
-p1 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    du_dt_flat,
-    c=du_dt_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$du/dt$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig1.colorbar(p1)
+# fig1 = plt.figure(1)
+# ax = plt.axes(projection=Axes3D.name)
+# p1 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     du_dt_flat,
+#     c=du_dt_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$du/dt$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig1.colorbar(p1)
 
-fig2 = plt.figure(2)
-ax = plt.axes(projection=Axes3D.name)
-p2 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    du_dx_flat,
-    c=du_dx_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$du/dx$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig2.colorbar(p2)
+# fig2 = plt.figure(2)
+# ax = plt.axes(projection=Axes3D.name)
+# p2 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     du_dx_flat,
+#     c=du_dx_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$du/dx$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig2.colorbar(p2)
 
-fig3 = plt.figure(3)
-ax = plt.axes(projection=Axes3D.name)
-p3 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dt2_flat,
-    c=d2u_dt2_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dt^2$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig3.colorbar(p3)
+# fig3 = plt.figure(3)
+# ax = plt.axes(projection=Axes3D.name)
+# p3 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dt2_flat,
+#     c=d2u_dt2_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dt^2$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig3.colorbar(p3)
 
-fig4 = plt.figure(4)
-ax = plt.axes(projection=Axes3D.name)
-p4 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dx2_flat,
-    c=d2u_dx2_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dx^2$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig4.colorbar(p4)
+# fig4 = plt.figure(4)
+# ax = plt.axes(projection=Axes3D.name)
+# p4 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dx2_flat,
+#     c=d2u_dx2_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dx^2$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig4.colorbar(p4)
 
-fig5 = plt.figure(5)
-ax = plt.axes(projection=Axes3D.name)
-p5 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dxdt_flat,
-    c=d2u_dxdt_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dxdt$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig5.colorbar(p5)
+# fig5 = plt.figure(5)
+# ax = plt.axes(projection=Axes3D.name)
+# p5 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dxdt_flat,
+#     c=d2u_dxdt_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dxdt$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig5.colorbar(p5)
 
-fig6 = plt.figure(6)
-ax = plt.axes(projection=Axes3D.name)
-p6 = ax.scatter3D(
-    X[:, 0],
-    X[:, 1],
-    d2u_dtdx_flat,
-    c=d2u_dtdx_flat,
-    s=15,
-    cmap="viridis",
-    marker=".",
-)
-ax.set_ylabel("$t$")
-ax.set_xlabel("$x$")
-ax.set_xlim([-1, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$d^2u/dtdtx$ from Ground Truth, using 2nd order accurate FD")
-Axes3D.view_init(ax,elev=90,azim=0)
-plt.tight_layout()
-fig6.colorbar(p6)
+# fig6 = plt.figure(6)
+# ax = plt.axes(projection=Axes3D.name)
+# p6 = ax.scatter3D(
+#     X[:, 0],
+#     X[:, 1],
+#     d2u_dtdx_flat,
+#     c=d2u_dtdx_flat,
+#     s=15,
+#     cmap="viridis",
+#     marker=".",
+# )
+# ax.set_ylabel("$t$")
+# ax.set_xlabel("$x$")
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([0, 1])
+# ax.set_title("$d^2u/dtdtx$ from Ground Truth, using 2nd order accurate FD")
+# Axes3D.view_init(ax,elev=90,azim=0)
+# plt.tight_layout()
+# fig6.colorbar(p6)
 plt.show()

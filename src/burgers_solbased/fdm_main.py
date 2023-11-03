@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import time
 
 # u is a vector with every point being at a different x
-N = 4080 # 400 # 3200              # 510, 1020, 2040, 4080
-nt = 1601  # 101  # 1601           # 200+1, 400+1, 800+1, 1600+1
+N = 400 # 400 # 4080            # 510, 1020, 2040, 4080
+nt = 101  # 101  # 1601           # 200+1, 400+1, 800+1, 1600+1
 dx = 2 / N
 b = 0.01 / np.pi  # viscosity term
 
@@ -38,6 +38,7 @@ u0_int = u0[1:N]
 
 # Define Time Interval
 t = np.linspace(0, 1, nt)
+print(len(t))
 # Where the solution is computed
 # sol = odeint(burgers, u0, t, args=(b))
 u_int = odeint(burgers, u0_int, t, args=(b, N))
@@ -56,11 +57,14 @@ print(u.shape)
 print("--- %s seconds ---" % (time.time() - start_time))
 
 # Export Data
-np.savez("Burgers2.npz", t=t, x=x0, exact=u)
+# np.savez("Burgers2.npz", t=t, x=x0, exact=u)
 print("\n --- Data Exported ---")
 
 # Plot graph
 fig = plt.figure(figsize=(7, 4))
+print(t.shape)
+print(x0.shape)
+print(u.shape)
 plt.pcolormesh(t, x0, u, cmap="rainbow")
 plt.xlabel("t")
 plt.ylabel("x")

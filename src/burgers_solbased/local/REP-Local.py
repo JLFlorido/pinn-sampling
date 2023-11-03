@@ -138,9 +138,6 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100): # Main Code
         # X_selected = X[X_ids]
         # Using u_xt
         Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        print(Y.shape)
-        print("HERE")
-        quit()
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)

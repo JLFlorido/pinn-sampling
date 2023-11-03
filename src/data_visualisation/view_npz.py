@@ -1,7 +1,7 @@
 import numpy as np
 
 # Replace 'your_file.npz' with the actual file name
-file_name = 'Burgers.npz'
+file_name = 'Burgers2.npz'
 
 # Load the contents of the .npz file
 data = np.load(file_name)

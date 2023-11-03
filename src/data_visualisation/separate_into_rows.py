@@ -1,4 +1,4 @@
-fname = 'results/raw/errors_losses/REP_errors2_dual_residual_uxut2_D5_Hammersley_k0.5c1.0_N2000_L100_error_curves.txt'
+fname = 'results/raw/REP_errors2_gt_none_D3_Hammersley_k1.0c1.0_N2000_L100_error_curves.txt'
 # Read the contents of the .txt file
 with open(fname, 'r') as file:
     data = file.read()
