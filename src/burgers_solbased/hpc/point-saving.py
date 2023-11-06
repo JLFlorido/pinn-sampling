@@ -1,19 +1,18 @@
-"""Run PINN to solve Burger's Equation using adaptive resampling via REPlacement (REP) based on residual or gradient/curvature information. 
-REP-HPC_dual.py Uses two sources of information sequentially.
+"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
+point_saving.py. This version saves points for viewing at intervals throughout training, to see how it changes for different cases.
 
 Usage:
-    REP-HPC_dual.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>] [--INP2=<input2>]
-    REP-HPC_dual.py -h | --help
+    point_saving.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    point_saving.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
     --N=<NumDomain>             Number of collocation points for training [default: 2000]
     --L=<NumResamples>          Number of times points are resampled [default: 100]
-    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Hammersley]
     --DEP=<depth>               Depth of the network [default: 3]
-    --INP1=<input1>             First info source, "uxt", "uxut1" etc... [default: "residual"]
-    --INP2=<input2>             Second info source, "uxt", "uxut1" etc... [default: "uxt"]
+    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: "residual"]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
@@ -26,6 +25,7 @@ from distutils.version import LooseVersion
 import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 import time
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
@@ -34,12 +34,16 @@ dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
-    data = np.load("./Burgers.npz")
-    t, x, exact = data["t"], data["x"], data["usol"].T
+    data = np.load("./Burgers2.npz")
+    t, x, exact = data["t"], data["x"], data["exact"].T
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = exact.flatten()[:, None]
-    return X, y
+    x=np.squeeze(x)
+    t=np.squeeze(t)
+    exact=np.squeeze(exact)
+    itp = RegularGridInterpolator( (t, x), exact, method='linear', bounds_error=False, fill_value=None)
+    return X, y, itp
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
     space = [(-1.0, 1.0), (0.0, 1.0)]
@@ -65,14 +69,13 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual", input2="uxt"): # Main Code
+def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Hammersley", depth=3, input1="residual"): # Main Code
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
-    print(f"Input 1 equals {input1}")
-    print(f"Input 2 equals {input2}")
+    print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
 
     def pde(x, y): # Define Burgers PDE
@@ -87,7 +90,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     def du_xt(x,y): # Returns curvature in xt
         return dde.grad.hessian(y,x,i=1,j=0)
 
-    X_test, y_true = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
+    X_test, y_true, itp = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
 
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     geom = dde.geometry.Interval(-1, 1)
@@ -135,8 +138,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print("Finished initial steps. ")
     print(f"l2_relative_error: {l2_error}")
 
-    # Loop using input 1
-    for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
+    for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
 
         # --- Below, all the different info sources for resampling
@@ -160,49 +162,28 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
             Y = np.sqrt((Y1**2)+(Y2**2))
+        elif input1 == "error":
+            y_true_resample = itp(X[:,[1,0]])
+            y_pred = model.predict(X)
+            y_pred = np.squeeze(y_pred)
+            Y = np.abs(y_true_resample - y_pred)
+
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+
+        err_eq_normalized = (err_eq / sum(err_eq))[:]
+        err_eq_normalized = np.squeeze(err_eq_normalized)
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
 
-        data.replace_with_anchors(X_selected) # Change current points with selected X points
-
-        model.compile("adam", lr=0.001)
-        model.train(epochs=1000, display_every=300000)
-        model.compile("L-BFGS")
-        model.train(display_every=300000)
-
-        print("!\nFinished loop #{}\n".format(i+1))
-
-    # Loop using input 2
-    for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
-        X = geomtime.random_points(100000)
-
-        # --- Below, all the different info sources for resampling
-        if input2 == "residual":
-            Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        elif input2 == "uxt" or input2 == "utx":
-            Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        elif input2 == "uxut1":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)
-        elif input2 == "uxut2":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)/2
-        elif input2 == "uxut3":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.maximum(Y1,Y2)
-        elif input2 == "uxut4":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.sqrt((Y1**2)+(Y2**2))
-        err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        X_selected = X[X_ids]
+        if i in [0,1,2,19,39,59,79,97,98,99]:
+            point_fname = f"points_{input1}_{i}_k{k}_c{c}.txt"
+            err_fname = f"err_{input1}_{i}_k{k}_c{c}.txt"
+            xtest_fname = f"xtest_{input1}_{i}_k{k}_c{c}.txt"
+            y_pred2 = model.predict(X_test)
+            np.savetxt(fname=point_fname,X=X_selected)
+            np.savetxt(fname=err_fname,X=y_pred2)
+            np.savetxt(fname=xtest_fname,X=X_test)
+            
 
         data.replace_with_anchors(X_selected) # Change current points with selected X points
 
@@ -216,13 +197,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     y_pred = model.predict(X_test)
     error_final = dde.metrics.l2_relative_error(y_true, y_pred)
     time_taken = (time.time()-start_t)
-
-    # dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-    #              loss_fname=f"REP_dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"REP_dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"REP_dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-    #              output_dir="../results/additional_info")
-
+    
     return error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -238,43 +213,6 @@ if __name__ == "__main__":
     method=str(args['--IM'])
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
-    input2=str(args["--INP2"])
 
-    error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1, input2=input2) # Run main, record error history and final accuracy.
-
-    if np.isscalar(time_taken):
-        time_taken = np.atleast_1d(time_taken)
-    if np.isscalar(error_final):
-        error_final = np.atleast_1d(error_final)
-    
-    output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"REP_dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"REP_dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
-    
-    # If results directory does not exist, create it
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-
-    # Define the full file paths
-    error_final_fname = os.path.join(output_dir, error_final_fname)
-    time_taken_fname = os.path.join(output_dir, time_taken_fname)
-    
-    # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
-    # the file is locked for saving by a different job.
-    def append_to_file(file_path, data):
-        try:    
-            with open(file_path, 'ab') as file:
-                np.savetxt(file,data)
-        except Exception as e:
-            print(f"An exception occurred: {e}")
-            print("Retrying in 5 seconds...")
-            time.sleep(5)
-            try:
-                with open(file_path, 'ab') as file:
-                    np.savetxt(file, data)
-            except Exception as e2:
-                print(f"An exception occurred again: {e2}")
-
-    # Use function to append to file.
-    append_to_file(error_final_fname, error_final)
-    append_to_file(time_taken_fname, time_taken)
+    _, _ = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+ # Error and time don't matter as this is only to look at point distribution.

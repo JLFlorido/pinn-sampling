@@ -1,8 +1,9 @@
-"""REP-HPC-GPU.py DocOpt enabled to use in ARC, but using apply method so can run in serial when using one GPU.
+""" curves_coarse_manualinput.py Coarse=Original because it uses the original Burgers.npz that is more coarse. 
+Have to manually change what info source to use. Won't bother changing as it's better to use the 2nd iteration with the fine burgers.npz.
 
 Usage:
-    REP-HPC-GPU.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>]
-    REP-HPC-GPU.py -h | --help
+    curves_coarse_manualinput.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<Depth>]
+    curves_coarse_manualinput.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -10,6 +11,7 @@ Options:
     --N=<NumDomain>             Number of collocation points for training [default: 2000]
     --L=<NumResamples>          Number of times points are resampled [default: 100]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --DEP=<Depth>               Depth of the network [default: 3]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
@@ -21,28 +23,15 @@ import skopt
 from distutils.version import LooseVersion
 import deepxde as dde
 from deepxde.backend import tf
+
+from scipy.interpolate import RegularGridInterpolator
 import numpy as np
 import time
-from multiprocessing import Pool
 
+# os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 dde.config.set_default_float("float64")
 dde.optimizers.config.set_LBFGS_options(maxiter=1000)
-
-def apply(func,args=None,kwds=None):
-    """
-    Launch a new process to call the function.
-    This can be used to clear Tensorflow GPU memory after model execution.
-    """
-    with Pool(1) as p:
-        if args is None and kwds is None:
-            r = p.apply(func)
-        elif kwds is None:
-            r = p.apply(func, args=args)
-        elif args is None:
-            r = p.apply(func, kwds=kwds)
-        else:
-            r = p.apply(func, args=args, kwds=kwds)
-    return r
 
 def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
     data = np.load("./Burgers.npz")
@@ -50,7 +39,11 @@ def gen_testdata(): # This function opens the ground truth solution. Need to cha
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = exact.flatten()[:, None]
-    return X, y
+    x=np.squeeze(x)
+    t=np.squeeze(t)
+    exact=np.squeeze(exact)
+    itp = RegularGridInterpolator( (t, x), exact, method='linear', bounds_error=False, fill_value=None)
+    return X, y, itp
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
     space = [(-1.0, 1.0), (0.0, 1.0)]
@@ -76,11 +69,7 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main Code
-    print(f"k equals {k}")
-    print(f"c equals {c}")
-    print(f"NumDomain equals {NumDomain}")
-    print(f"Method equals {method}")
+def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3): # Main Code
     start_t = time.time() #Start time.
 
     def pde(x, y): # Define Burgers PDE
@@ -101,12 +90,13 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
     def du_tt(x,y): # Returns curvature in tt
         return dde.grad.hessian(y,x,i=1,j=1)
 
-    X_test, y_true = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
+    X_test, y_true, itp = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
 
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     geom = dde.geometry.Interval(-1, 1)
     timedomain = dde.geometry.TimeDomain(0, 1)
     geomtime = dde.geometry.GeometryXTime(geom, timedomain)
+
     if method == "Grid":
         data = dde.data.TimePDE(
             geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
@@ -127,7 +117,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
             anchors=sample_pts,
         )
 
-    net = dde.maps.FNN([2] + [64] * 3 + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
+    net = dde.maps.FNN([2] + [64] * depth + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
 
     def output_transform(x, y): # BC
         return -tf.sin(np.pi * x[:, 0:1]) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
@@ -137,14 +127,26 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000, display_every=False)
+    model.train(epochs=15000, display_every=300000)
+
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
-    model.train(display_every=False)
+    model.train(display_every=300000)
 
     # Measuring error after initial phase. This information is not used by network to train.
+    y_pred_local = model.predict(data.train_x_all)
+    y_pred_local = [x[0] for x in y_pred_local]
     y_pred = model.predict(X_test)
+
+    local_points=data.train_x_all[:,[1, 0]]
+    y_true_local = itp(local_points) # INTERPOLATOR NEEDS to be fed (t,x) not (x,t).
+
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
+    l2_error_local = dde.metrics.l2_relative_error(y_true_local, y_pred_local)
+
+    error_hist = [l2_error]
+    error_hist_local = [l2_error_local]
+    step_hist = [model.train_state.step]
     
     print("Finished initial steps. ")
     print(f"l2_relative_error: {l2_error}")
@@ -160,9 +162,7 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
         # Y = np.abs(model.predict(X, operator=du_tt)).astype(np.float64) # 5 Using u_tt
         # Y = np.abs(model.predict(X, operator=du_tx)).astype(np.float64) # 6 Using u_tx
         # Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64) # 7 Using u_xt 
-        # Y = (Y1+Y2)
-        # Y = np.maximum(Y1,Y2)
-        # Y = np.sqrt((Y1**2)+(Y2**2))
+        # Y=(Y1+Y2)
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -172,64 +172,78 @@ def jpinn(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"): # Main C
 
         # print("1000 Adam Steps")
         model.compile("adam", lr=0.001)
-        model.train(epochs=1000, display_every=False)
+        model.train(epochs=1000, display_every=300000)
         # print("LBFG-S Steps")
         model.compile("L-BFGS")
-        model.train(display_every=False)
+        losshistory, train_state = model.train(display_every=300000)
 
         y_pred = model.predict(X_test)
         l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
+        local_points=data.train_x_all[:,[1, 0]]
+        y_pred_local = model.predict(data.train_x_all) # model.predict need (x,t)
+        y_pred_local = [x[0] for x in y_pred_local]
+        y_true_local = itp(local_points) # Interpolator needs (t,x), hence use of local_points.
+        l2_error_local = dde.metrics.l2_relative_error(y_true_local, y_pred_local)
+        error_hist.append(l2_error)
+        error_hist_local.append(l2_error_local)
+        step_hist.append(model.train_state.step)
         print("!\nFinished loop #{}\n".format(i+1))
         print(f"l2_relative_error: {l2_error}")
 
     error_final = l2_error
-    # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-    #              loss_fname=f"REP-GPU_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"REP-GPU_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"REP-GPU_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-    #              output_dir="../results/additional_info")
     time_taken = (time.time()-start_t)
-    return error_final, time_taken
+
+    dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
+                 loss_fname=f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 output_dir="../results/errors_losses")
+    
+    error_curves = np.column_stack(
+        (
+            np.array(step_hist),
+            np.array(error_hist_local),
+            np.array(error_hist),
+        )
+    )
+    return error_curves, error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Main. Imports variables, runs JPINN with apply() method and saves resulting results arrays.
+# Calling main and saving results
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def main():
+if __name__ == "__main__":
     args = docopt(__doc__)
     c=float(args['--c'])
     k=float(args['--k'])
     NumDomain=int(args['--N'])
     NumResamples=int(args['--L'])
     method=str(args['--IM'])
+    depth=int(args["--DEP"])
+    error_curves, error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth) # Run main, record error history and final accuracy.
 
-    time_taken_list = []
-    error_final_list = []
-
-    for repeat in range(1):
-        error_final, time_taken = apply(jpinn, (c, k, NumDomain,NumResamples,method)) # Run main, record error history and final accuracy.
-
-        if np.isscalar(time_taken):
-            time_taken = np.atleast_1d(time_taken)
-        if np.isscalar(error_final):
-            error_final = np.atleast_1d(error_final)
-        
-        time_taken_list.append(time_taken)
-        error_final_list.append(error_final)
-        print(f"number {repeat+1} done, took {time_taken} seconds")
+    if np.isscalar(time_taken):
+        time_taken = np.atleast_1d(time_taken)
+    if np.isscalar(error_final):
+        error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"REP_GPU_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"REP_GPU_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    output_dir_2 = "../results/errors_losses"
+    error_curves_fname = f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_curves.txt"
+    error_final_fname = f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"curves_coarse_res_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
+    if not os.path.exists(output_dir_2):
+        os.mkdir(output_dir_2)
 
     # Define the full file paths
     error_final_fname = os.path.join(output_dir, error_final_fname)
     time_taken_fname = os.path.join(output_dir, time_taken_fname)
-    
+    error_curves_fname = os.path.join(output_dir_2, error_curves_fname)
+
     # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
     # the file is locked for saving by a different job.
     def append_to_file(file_path, data):
@@ -249,8 +263,6 @@ def main():
                 print(f"An exception occurred again: {e2}")
 
     # Use function to append to file.
-    append_to_file(error_final_fname, error_final_list)
-    append_to_file(time_taken_fname, time_taken_list)
-
-if __name__ == "__main__":
-    main()
+    append_to_file(error_curves_fname, error_curves)
+    append_to_file(error_final_fname, error_final)
+    append_to_file(time_taken_fname, time_taken)

@@ -3,7 +3,6 @@
 # Different filepaths for test and train because default code produces both and was unsure which to use.
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
 # Import Data For Plot 1 and 2 (The scatter graph)
@@ -18,7 +17,7 @@ fname7 = "results/raw/grad_curvature_estimates_new/hess_tx.txt" # Hessian, dtx
 case1 = np.loadtxt(fname1, delimiter=" ", skiprows=1)
 case2 = np.loadtxt(fname2, delimiter=" ", skiprows=1)
 case3 = np.loadtxt(fname3, delimiter=" ", skiprows=1)
-case4 = np.loadtxt(fname4, delimiter=" ", skiprows=1)
+case4 = np.loadtxt(fname4, delimiter=" ", skiprows=1) 
 case5 = np.loadtxt(fname5, delimiter=" ", skiprows=1)
 case6 = np.loadtxt(fname6, delimiter=" ", skiprows=1)
 case7 = np.loadtxt(fname7, delimiter=" ", skiprows=1)

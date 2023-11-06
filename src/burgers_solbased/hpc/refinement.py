@@ -1,9 +1,9 @@
-"""REF-HPC.py. Run PINN to solve Burger's Equation using adaptive resampling with distribution (RAR-D) based on residuals or gradients or curvature.
-This version is to check whether this works at all as it used to be broken.
+"""refinement.py. Run PINN to solve Burger's Equation using adaptive resampling with distribution (RAR-D) based on residuals or gradients or curvature.
+Refinement. This version uses refinement nistead of replacement.
 
 Usage:
-    REF-HPC.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--ip=<InitialProportion>] [--IM=<InitialMethod>]
-    REF-HPC.py -h | --help
+    refinement.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--ip=<InitialProportion>] [--IM=<InitialMethod>]
+    refinement.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -158,9 +158,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, ip=0.5, method="Random"):
     error_final = l2_error
     error_hist = np.array(error_hist)
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="../results/additional_info")
     time_taken = (time.time()-start_t)
     
@@ -184,9 +184,9 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
 
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_hist_fname = f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
-    error_final_fname = f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"RARD_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_hist_fname = f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_hist.txt"
+    error_final_fname = f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"refinement_res_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

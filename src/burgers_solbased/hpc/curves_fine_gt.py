@@ -1,8 +1,8 @@
-""" REP-HPC_errors2_gt.py 2 because it uses the the fine FDM Burgers2.npz. _gt because it uses ground truth as info source.
+""" curves_fine_gt.py Can use ground truth as info source, and produces curves based on fine Burgers.npz
 
 Usage:
-    REP-HPC_errors.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<Depth>] [--INP1=<input1>]
-    REP-HPC_errors.py -h | --help
+    curves_fine_gt.py -k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<Depth>] [--INP1=<input1>]
+    curves_fine_gt.py  | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -191,9 +191,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     time_taken = (time.time()-start_t)
 
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="../results/errors_losses")
     
     error_curves = np.column_stack(
@@ -228,9 +228,9 @@ if __name__ == "__main__":
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
     output_dir_2 = "../results/errors_losses"
-    error_curves_fname = f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_curves.txt"
-    error_final_fname = f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"REP_errors2_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_curves_fname = f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_curves.txt"
+    error_final_fname = f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"curves_fine_gt_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
