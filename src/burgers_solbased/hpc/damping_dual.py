@@ -1,9 +1,9 @@
 """Run PINN to solve Burger's Equation using adaptive resampling via REPlacement (REP) based on residual or gradient/curvature information. 
-dual_sequential.py. Uses two sources of information sequentially, half the loops for each
+damping_dual.py. Damps c instead of using a fixed hyperparameter. Uses two sources of information sequentially, half the loops for each
 
 Usage:
-    dual_sequential.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>] [--INP2=<input2>]
-    dual_sequential.py -h | --help
+    damping_dual.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>] [--INP2=<input2>]
+    damping_dual.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -65,9 +65,10 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual", input2="uxt"): # Main Code
+def main(k=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual", input2="uxt"): # Main Code
+    k_res = 1
     print(f"k equals {k}")
-    print(f"c equals {c}")
+    print(f"k_res equals {k_res}")
     print(f"NumDomain equals {NumDomain}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
@@ -136,7 +137,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"l2_relative_error: {l2_error}")
 
     # Loop using input 1
+    c = 1
+    c_interval = c/(NumResamples-1)
+    c = c + c_interval
     for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
+        c = c - c_interval
+        print(f"current c: {c}")
         X = geomtime.random_points(100000)
 
         # --- Below, all the different info sources for resampling
@@ -160,7 +166,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
             Y = np.sqrt((Y1**2)+(Y2**2))
-        err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
+        err_eq = np.power(Y, k_res) / np.power(Y, k_res).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
@@ -176,6 +182,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
     # Loop using input 2
     for i in range(NumResamples//2): # Resampling loop begins. 100 is default, first run took ~4 hours...
+        c = c - c_interval
+        print(f"current c: {c}")
         X = geomtime.random_points(100000)
 
         # --- Below, all the different info sources for resampling
@@ -218,9 +226,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     time_taken = (time.time()-start_t)
 
     # dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-    #              loss_fname=f"dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+    #              loss_fname=f"damping_dual_{input1}_{input2}_D{depth}_{method}_k{k}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+    #              train_fname=f"damping_dual_{input1}_{input2}_D{depth}_{method}_k{k}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+    #              test_fname=f"damping_dual_{input1}_{input2}_D{depth}_{method}_k{k}_N{NumDomain}_L{NumResamples}_finalypred.dat",
     #              output_dir="../results/additional_info")
 
     return error_final, time_taken
@@ -231,7 +239,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    c=float(args['--c'])
     k=float(args['--k'])
     NumDomain=int(args['--N'])
     NumResamples=int(args['--L'])
@@ -240,7 +247,7 @@ if __name__ == "__main__":
     input1=str(args["--INP1"])
     input2=str(args["--INP2"])
 
-    error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1, input2=input2) # Run main, record error history and final accuracy.
+    error_final, time_taken = main(k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1, input2=input2) # Run main, record error history and final accuracy.
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
@@ -248,8 +255,8 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"dual_{input1}_{input2}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_final_fname = f"damping-linear_dual_{input1}_{input2}_D{depth}_{method}_k{k}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"damping-linear_dual_{input1}_{input2}_D{depth}_{method}_k{k}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

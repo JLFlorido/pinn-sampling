@@ -11,7 +11,7 @@ Options:
     --L=<NumResamples>          Number of times points are resampled [default: 100]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
     --DEP=<depth>               Depth of the network [default: 3]
-    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: "residual"]
+    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
