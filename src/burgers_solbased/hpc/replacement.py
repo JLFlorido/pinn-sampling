@@ -84,6 +84,24 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         return dde.grad.jacobian(y,x, i=0, j=1)
     def du_xt(x,y): # Returns curvature in xt
         return dde.grad.hessian(y,x,i=1,j=0)
+    def dpde_dx(x,y): #residual wrt x
+        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
+        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
+        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
+        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx
+        return dde.grad.jacobian(pde, x, i=0, j=0)
+    def dpde_dt(x,y): #residual wrt y
+        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
+        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
+        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
+        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx    
+        return dde.grad.jacobian(pde, x, i=0, j=1)
+    def dpde_dxt(x,y): #residual wrt y
+        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
+        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
+        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
+        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx    
+        return dde.grad.hessian(pde, x, i=1, j=0)
 
     X_test, y_true = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
 
@@ -157,6 +175,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
             Y = np.sqrt((Y1**2)+(Y2**2))
+        elif input1 == "pdedx":
+            Y = np.abs(model.predict(X, operator=dpde_dx))
+        elif input1 == "pdedt":
+            Y = np.abs(model.predict(X, operator=dpde_dt))
+        elif input1 == "pdedxt":
+            Y = np.abs(model.predict(X, operator=dpde_dxt))
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
