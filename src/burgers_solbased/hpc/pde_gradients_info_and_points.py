@@ -206,7 +206,16 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         model.train(epochs=1000, display_every=300000)
         model.compile("L-BFGS")
         model.train(display_every=300000)
-
+        
+        # This part saves all predictions to check. Not needed.
+        # if i in [0,1,2,19,39,59,79,99]:
+        #     dpde_dx_pred = model.predict(X_test, dpde_dx)
+        #     np.savetxt(f"dpde_dx_{i}.txt",dpde_dx_pred)
+        #     dpde_dt_pred = model.predict(X_test, dpde_dt)
+        #     np.savetxt(f"dpde_dt_{i}.txt",dpde_dt_pred)
+        #     dpde_dxt_pred = model.predict(X_test, dpde_dxt)
+        #     np.savetxt(f"dpde_dxt_{i}.txt",dpde_dxt_pred)
+        #     np.savetxt("x_test.txt",X_test)
 
         print("!\nFinished loop #{}\n".format(i+1))
 
