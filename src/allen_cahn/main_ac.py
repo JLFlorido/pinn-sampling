@@ -1,10 +1,11 @@
 """Run PINN to solve Allen Cahn equation.
 
 Usage:
-    main_ac.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    main_ac.py [--D=<DiffCoeff>] [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
     main_ac.py -h | --help
 Options:
     -h --help                   Display this help message
+    --D=<DiffCoeff>             I think this parameter indicates strength of diffusion. E-3 in Wu, E-4 elsewhere. [default: 0.001]
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
     --N=<NumDomain>             Number of collocation points for training [default: 2000]
@@ -31,17 +32,25 @@ os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
 dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 
-def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
-    data = loadmat("usol_D_0.001_k_5.mat")
-
+def gen_testdata_E3(): # This function opens the ground truth solution. Commented out directory is for local
+    data = loadmat("usol_D_0.001_k_5.mat") # data = loadmat("src/allen_cahn/usol_D_0.001_k_5.mat")
     t = data["t"]
-
     x = data["x"]
-
     u = data["u"]
-
     dt = dx = 0.01
+    xx, tt = np.meshgrid(x, t)
+    X = np.vstack((np.ravel(xx), np.ravel(tt))).T
+    y = u.flatten()[:, None]
+    return X, y
 
+def gen_testdata_E4(): # This function opens the ground truth solution. Commented out directory is for local
+    data = loadmat("usol_D_0.0001_raissi.mat") # data = loadmat("src/allen_cahn/usol_D_0.0001_raissi.mat")
+    t = data["tt"]
+    x = data["x"]
+    u = data["uu"]
+    u=u.T
+    dx=1/256
+    dt=0.005
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
     y = u.flatten()[:, None]
@@ -71,7 +80,8 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual"): # Main Code
+def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual"): # Main Code
+    print(f"D equals {diff}")
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
@@ -80,11 +90,21 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
 
-    def pde(x, y): # Define Burgers PDE
-        u = y
-        du_xx = dde.grad.hessian(y, x, i=0, j=0)
-        du_t = dde.grad.jacobian(y, x, i=0, j=1)
-        return du_t - 0.001 * du_xx + 5 * (u**3 - u) # Raissi, Agnastopoulos use E-4. Wu use E-3.
+    if diff==0.001:
+        def pde(x, y): # Define Allen Cahn Equation
+            u = y
+            du_xx = dde.grad.hessian(y, x, i=0, j=0)
+            du_t = dde.grad.jacobian(y, x, i=0, j=1)
+            return du_t - 0.001 * du_xx + 5 * (u**3 - u) # Raissi, Agnastopoulos use E-4. Wu use E-3.
+    elif diff==0.0001:
+        def pde(x, y): # Define Allen Cahn Equation
+            u = y
+            du_xx = dde.grad.hessian(y, x, i=0, j=0)
+            du_t = dde.grad.jacobian(y, x, i=0, j=1)
+            return du_t - 0.0001 * du_xx + 5 * (u**3 - u) # Raissi, Agnastopoulos use E-4. Wu use E-3.
+    else:
+        raise ValueError("Invalid value for 'diff'. Please use either 0.001 or 0.0001.")
+        
     def dudx(x,y): # Returns gradient in x
         return dde.grad.jacobian(y, x, i=0, j=0)
     def dudt(x,y): # Returns gradient in y
@@ -92,8 +112,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     def du_xt(x,y): # Returns curvature in xt
         return dde.grad.hessian(y,x,i=1,j=0)
 
-    X_test, y_true = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
-
+    if diff == 0.001:
+        X_test, y_true = gen_testdata_E3()
+    elif diff == 0.0001:
+        X_test,y_true = gen_testdata_E4()
+    else:
+        raise ValueError("Invalid value for 'diff'. Please use either 0.001 or 0.0001.")
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     geom = dde.geometry.Interval(-1, 1)
     timedomain = dde.geometry.TimeDomain(0, 1)
@@ -176,7 +200,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         model.compile("adam", lr=0.001)
         model.train(epochs=1000, display_every=300000)
         model.compile("L-BFGS")
-        model.train(display_every=300000)
+        losshistory, train_state = model.train(display_every=300000)
 
         print("!\nFinished loop #{}\n".format(i+1))
 
@@ -185,9 +209,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     time_taken = (time.time()-start_t)
     
     dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 loss_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
                  output_dir="../results/additional_info")
     return error_final, time_taken
  
@@ -197,6 +221,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
 if __name__ == "__main__":
     args = docopt(__doc__)
+    diff=float(args['--D'])
     c=float(args['--c'])
     k=float(args['--k'])
     NumDomain=int(args['--N'])
@@ -205,7 +230,7 @@ if __name__ == "__main__":
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
 
-    error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    error_final, time_taken = main(diff=diff, c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
@@ -213,8 +238,8 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_final_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
