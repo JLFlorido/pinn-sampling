@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Import Loss Data
-fname_loss1 = "results/raw/loss/loss_Ham2k.dat"
-fname_loss2 = "results/raw/loss/loss_RAD_default.dat"
-fname_loss3 = "results/raw/loss/loss_RAR-D_default.dat"
+fname_loss1 = "results/raw/additional_info/no_replacement400k_D3_Random_N2000_loss_info.dat"
+fname_loss1 = "results/raw/additional_info/no_replacement400k_D3_Grid_N2000_loss_info.dat"
+fname_loss1 = "results/raw/additional_info/no_replacement400k_D3_Hammersley_N2000_loss_info.dat"
+# fname_loss2 = "results/raw/loss/loss_RAD_default.dat"
+# fname_loss3 = "results/raw/loss/loss_RAR-D_default.dat"
 loss_1 = np.loadtxt(fname_loss1, delimiter=" ", skiprows=1)
-loss_2 = np.loadtxt(fname_loss2, delimiter=" ", skiprows=1)
-loss_3 = np.loadtxt(fname_loss3, delimiter=" ", skiprows=1)
+# loss_2 = np.loadtxt(fname_loss2, delimiter=" ", skiprows=1)
+# loss_3 = np.loadtxt(fname_loss3, delimiter=" ", skiprows=1)
 
 # More imports if necessary
 # fname_loss4 = "results/raw/loss/loss_RAR-D_2000_a2.dat"
@@ -19,42 +21,42 @@ loss_3 = np.loadtxt(fname_loss3, delimiter=" ", skiprows=1)
 # loss_5 = np.loadtxt(fname_loss5, delimiter=" ", skiprows=1)
 
 # ------------------------------------------------------- Plot 1 --------------------------------------------------------
-plt.figure(1)
-ax = plt.axes()
-ax.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
-ax.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
-ax.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
+# plt.figure(1)
+# ax = plt.axes()
+# ax.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
+# ax.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
+# ax.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
 # ax.plot(loss_4[:, 0], loss_4[:, 2], label="RAR-D, 10 Re-samples, 15k Adam")
 
 
-ax.set_yscale("log")
-ax.set_xlabel("Steps")
-ax.set_ylabel("Loss")
-ax.set_title("Comparing Test Loss of All cases")
-ax.legend()
+# ax.set_yscale("log")
+# ax.set_xlabel("Steps")
+# ax.set_ylabel("Loss")
+# ax.set_title("Comparing Test Loss of All cases")
+# ax.legend()
 
 # ------------------------------------------------------- Plot 2 --------------------------------------------------------
-plt.figure(2)
-ax = plt.axes()
-ax.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
-ax.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
-ax.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
+# plt.figure(2)
+#
+# ax.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
+# ax.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
+# ax.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
 # ax.plot(loss_4[:, 0], loss_4[:, 2], label="RAR-D, 10 Re-samples, 15k Adam")
 
 
-ax.set_yscale("log")
-ax.set_xlim(0, 50000)
-ax.set_xlabel("Steps")
-ax.set_ylabel("Loss")
-ax.set_title("Comparing Test Loss across uniform cases")
-ax.legend()
+# ax.set_yscale("log")
+# ax.set_xlim(0, 50000)
+# ax.set_xlabel("Steps")
+# ax.set_ylabel("Loss")
+# ax.set_title("Comparing Test Loss across uniform cases")
+# ax.legend()
 # ------------------------------------------------------- Plot 1/2 Alternative subplot --------------------------------------------------------
 # Create a figure with 2 subplots
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
-ax1.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
-ax1.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
-ax1.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
+ax1.plot(loss_1[:, 0], loss_1[:, 1], label="Training loss")
+# ax1.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
+# ax1.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
 # ax1.plot(loss_4[:, 0], loss_4[:, 2], label="RAR-D, 10 Re-samples, 15k Adam")
 
 ax1.set_yscale("log")
@@ -62,17 +64,16 @@ ax1.set_xlabel("Steps")
 ax1.set_ylabel("Loss")
 ax1.legend()
 
-ax2.plot(loss_1[:, 0], loss_1[:, 2], label="Hammersley, 2k")
-ax2.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
-ax2.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
+ax2.plot(loss_1[:, 0], loss_1[:, 2], label="Test loss")
+# ax2.plot(loss_2[:, 0], loss_2[:, 2], label="RAD, default settings")
+# ax2.plot(loss_3[:, 0], loss_3[:, 2], label="RAR-D, default settings")
 # ax2.plot(loss_4[:, 0], loss_4[:, 2], label="RAR-D, 10 Re-samples, 15k Adam")
 
 ax2.set_yscale("log")
-ax2.set_xlim(0, 50000)
 ax2.set_xlabel("Steps")
 ax2.set_ylabel("Loss")
 ax2.legend()
-fig.suptitle("Comparing Test Loss")
+fig.suptitle("Random point distribution without resampling")
 
 # ------------------------------------------------------- Plot 3 --------------------------------------------------------
 # plt.figure(3)
