@@ -85,6 +85,7 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
+    print(f"NumResamples equals {NumResamples}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
     print(f"Input1 equals {input1}")
@@ -96,12 +97,24 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
             du_xx = dde.grad.hessian(y, x, i=0, j=0)
             du_t = dde.grad.jacobian(y, x, i=0, j=1)
             return du_t - 0.001 * du_xx + 5 * (u**3 - u) # Raissi, Agnastopoulos use E-4. Wu use E-3.
+        def dpde_dxt(x,y): #residual wrt y
+            u = y
+            du_xx = dde.grad.hessian(y, x, i=0, j=0)
+            du_t = dde.grad.jacobian(y, x, i=0, j=1)
+            pde = du_t - 0.001 * du_xx + 5 * (u**3 - u)
+            return dde.grad.hessian(pde, x, i=1, j=0)
     elif diff==0.0001:
         def pde(x, y): # Define Allen Cahn Equation
             u = y
             du_xx = dde.grad.hessian(y, x, i=0, j=0)
             du_t = dde.grad.jacobian(y, x, i=0, j=1)
             return du_t - 0.0001 * du_xx + 5 * (u**3 - u) # Raissi, Agnastopoulos use E-4. Wu use E-3.
+        def dpde_dxt(x,y): #residual wrt y
+            u = y
+            du_xx = dde.grad.hessian(y, x, i=0, j=0)
+            du_t = dde.grad.jacobian(y, x, i=0, j=1)
+            pde = du_t - 0.0001 * du_xx + 5 * (u**3 - u)
+            return dde.grad.hessian(pde, x, i=1, j=0)
     else:
         raise ValueError("Invalid value for 'diff'. Please use either 0.001 or 0.0001.")
         
@@ -114,7 +127,7 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
 
     if diff == 0.001:
         X_test, y_true = gen_testdata_E3()
-    elif diff == 0.0001:
+    elif diff == 0.0001: 
         X_test,y_true = gen_testdata_E4()
     else:
         raise ValueError("Invalid value for 'diff'. Please use either 0.001 or 0.0001.")
@@ -190,6 +203,8 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
             Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
             Y = np.sqrt((Y1**2)+(Y2**2))
+        elif input1 == "pdedxt":
+            Y = np.abs(model.predict(X, operator=dpde_dxt))
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -208,11 +223,11 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
     error_final = dde.metrics.l2_relative_error(y_true, y_pred)
     time_taken = (time.time()-start_t)
     
-    dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-                 loss_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-                 output_dir="../results/additional_info")
+    # dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
+    #              loss_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+    #              train_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+    #              test_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+    #              output_dir="../results/additional_info")
     return error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------

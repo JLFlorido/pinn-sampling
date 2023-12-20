@@ -68,6 +68,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
+    print(f"NumResamples equals {NumResamples}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
     print(f"Input1 equals {input1}")
