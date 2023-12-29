@@ -1,4 +1,6 @@
 results/raw
 .vscode/vscode-kanban.json
 *.csv
+*.gif
 src/testing_folder
+*.hdf5

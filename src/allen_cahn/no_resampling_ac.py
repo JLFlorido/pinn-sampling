@@ -1,18 +1,15 @@
 """Run PINN to solve Allen Cahn equation. Only use D=E-3, as the other case is for periodic BC and I've not figured out how to do those yet.
+no_resampling_ac.py - No resample, 400k iterations. Saves loss to check convergence just in case.
 
 Usage:
-    main_ac.py [--D=<DiffCoeff>] [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    main_ac.py -h | --help
+    no_resampling_ac.py [--D=<DiffCoeff>] [--N=<NumDomain>] [--IM=<InitialMethod>] [--DEP=<depth>]
+    no_resampling_ac.py -h | --help
 Options:
     -h --help                   Display this help message
     --D=<DiffCoeff>             I think this parameter indicates strength of diffusion. E-3 in Wu, E-4 elsewhere. [default: 0.001]
-    --k=<hyp_k>                 Hyperparameter k [default: 1]
-    --c=<hyp_c>                 Hyperparameter c [default: 1]
     --N=<NumDomain>             Number of collocation points for training [default: 2000]
-    --L=<NumResamples>          Number of times points are resampled [default: 100]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
     --DEP=<depth>               Depth of the network [default: 3]
-    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
@@ -30,7 +27,7 @@ import time
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
-dde.optimizers.config.set_LBFGS_options(maxiter=1000)
+dde.optimizers.config.set_LBFGS_options(maxiter=385000)
 
 def gen_testdata_E3(): # This function opens the ground truth solution. Commented out directory is for local
     data = loadmat("usol_D_0.001_k_5.mat") # data = loadmat("src/allen_cahn/usol_D_0.001_k_5.mat")
@@ -80,15 +77,11 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="residual"): # Main Code
+def main(diff=0.001, NumDomain=2000, method="Random", depth=3): # Main Code
     print(f"D equals {diff}")
-    print(f"k equals {k}")
-    print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
-    print(f"NumResamples equals {NumResamples}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
-    print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
 
     if diff==0.001:
@@ -163,71 +156,25 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
         return t_in * (1 + x_in) * (1 - x_in) * y + tf.square(x_in) * tf.cos(np.pi * x_in)
     net.apply_output_transform(output_transform)
     
-    # Initial Training before resampling
+    # The only training as no resampling
     model = dde.Model(data, net)
-    print("Initial 15000 Adam steps")
+    print("Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000, display_every=300000)
+    model.train(epochs=15000, display_every=10000)
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
-    model.train(display_every=300000)
-
-    # Measuring error after initial phase. This information is not used by network to train.
-    y_pred = model.predict(X_test)
-    l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
+    losshistory, train_state = model.train(display_every=10000)
     
-    print("Finished initial steps. ")
-    print(f"l2_relative_error: {l2_error}")
-
-    for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
-        X = geomtime.random_points(100000)
-
-        # --- Below, all the different info sources for resampling
-        if input1 == "residual":
-            Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        elif input1 == "uxt" or input1 == "utx":
-            Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        elif input1 == "uxut1":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)
-        elif input1 == "uxut2":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)/2
-        elif input1 == "uxut3":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.maximum(Y1,Y2)
-        elif input1 == "uxut4":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.sqrt((Y1**2)+(Y2**2))
-        elif input1 == "pdedxt":
-            Y = np.abs(model.predict(X, operator=dpde_dxt))
-        err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
-        err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
-        X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
-        X_selected = X[X_ids]
-
-        data.replace_with_anchors(X_selected) # Change current points with selected X points
-
-        model.compile("adam", lr=0.001)
-        model.train(epochs=1000, display_every=300000)
-        model.compile("L-BFGS")
-        losshistory, train_state = model.train(display_every=300000)
-
-        print("!\nFinished loop #{}\n".format(i+1))
-
     y_pred = model.predict(X_test)
     error_final = dde.metrics.l2_relative_error(y_true, y_pred)
     time_taken = (time.time()-start_t)
+    print("Time taken:", time_taken)
     
-    # dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
-    #              loss_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-    #              output_dir="../results/additional_info")
+    dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
+                 loss_fname=f"allencahn_no_replacement_{diff}_D{depth}_{method}_N{NumDomain}_loss_info.dat", 
+                 train_fname=f"allencahn_no_replacement_{diff}_D{depth}_{method}_N{NumDomain}_finalpoints.dat", 
+                 test_fname=f"allencahn_no_replacement_{diff}_D{depth}_{method}_N{NumDomain}_finalypred.dat",
+                 output_dir="../results/additional_info")
     return error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -237,24 +184,20 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
 if __name__ == "__main__":
     args = docopt(__doc__)
     diff=float(args['--D'])
-    c=float(args['--c'])
-    k=float(args['--k'])
     NumDomain=int(args['--N'])
-    NumResamples=int(args['--L'])
     method=str(args['--IM'])
     depth=int(args["--DEP"])
-    input1=str(args["--INP1"])
 
-    error_final, time_taken = main(diff=diff, c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    error_final, time_taken = main(diff=diff, NumDomain=NumDomain,method=method, depth=depth) # Run main, record error history and final accuracy.
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
     if np.isscalar(error_final):
         error_final = np.atleast_1d(error_final)
     
-    output_dir = "../results/performance_results/allen_cahn"  # Replace with your desired output directory path
-    error_final_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    output_dir = "../results/performance_results"  # Replace with your desired output directory path
+    error_final_fname = f"allencahn_no_resample_{diff}_D{depth}_{method}_N{NumDomain}_error_final.txt"
+    time_taken_fname = f"allencahn_no_resample_{diff}_D{depth}_{method}_N{NumDomain}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

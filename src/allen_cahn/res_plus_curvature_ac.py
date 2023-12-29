@@ -1,8 +1,8 @@
 """Run PINN to solve Allen Cahn equation. Only use D=E-3, as the other case is for periodic BC and I've not figured out how to do those yet.
-
+res_plus_curvature_ac.py AC but res plus INP1
 Usage:
-    main_ac.py [--D=<DiffCoeff>] [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    main_ac.py -h | --help
+    res_plus_curvature_ac.py [--D=<DiffCoeff>] [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    res_plus_curvature_ac.py -h | --help
 Options:
     -h --help                   Display this help message
     --D=<DiffCoeff>             I think this parameter indicates strength of diffusion. E-3 in Wu, E-4 elsewhere. [default: 0.001]
@@ -205,6 +205,11 @@ def main(diff=0.001, k=1, c=1, NumDomain=2000, NumResamples=100, method="Random"
             Y = np.sqrt((Y1**2)+(Y2**2))
         elif input1 == "pdedxt":
             Y = np.abs(model.predict(X, operator=dpde_dxt))
+
+        Y = Y/sum(Y)
+        res = np.abs(model.predict(X, operator=pde)).astype(np.float64)
+        res = res/sum(res)
+        Y = Y + res
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -253,8 +258,8 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results/allen_cahn"  # Replace with your desired output directory path
-    error_final_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"allencahn_{diff}_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_final_fname = f"allencahn_{diff}_res_plus_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"allencahn_{diff}_res_plus_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

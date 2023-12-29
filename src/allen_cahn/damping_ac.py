@@ -217,7 +217,8 @@ def main(diff=0.001, k=1, NumDomain=2000, NumResamples=100, method="Random", dep
 
         model.compile("adam", lr=0.001)
         model.train(epochs=1000, display_every=300000)
-        model.compile("L-BFGS")model.train(display_every=300000)
+        model.compile("L-BFGS")
+        model.train(display_every=300000)
 
         print("!\nFinished loop #{}\n".format(i+1))
 
@@ -271,6 +272,7 @@ if __name__ == "__main__":
         try:    
             with open(file_path, 'ab') as file:
                 np.savetxt(file,data)
+                print(f"Saved to \"{output_dir}\" directory successfully")
         except Exception as e:
             print(f"An exception occurred: {e}")
             print("Retrying in 5 seconds...")
@@ -278,6 +280,7 @@ if __name__ == "__main__":
             try:
                 with open(file_path, 'ab') as file:
                     np.savetxt(file, data)
+                    print(f"Saved to \"{output_dir}\" directory successfully")
             except Exception as e2:
                 print(f"An exception occurred again: {e2}")
 
