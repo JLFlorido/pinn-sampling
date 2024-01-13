@@ -13,7 +13,7 @@ def generate_sine_wave(invert,amplitude, frequency, N):
     invert = invert
 
     x = np.linspace(-1, 1, N+1)
-    y = invert*amplitude * np.sin(2 * np.pi * frequency * x)
+    y = invert*amplitude * np.sin(np.pi * frequency * x)
     return y
 # Cosine wave:
 def generate_cos_wave(invert,amplitude, frequency, N):
@@ -25,8 +25,8 @@ def generate_cos_wave(invert,amplitude, frequency, N):
     y = invert*amplitude * np.cos(2 * np.pi * frequency * x)
     return y
 # u is a vector with every point being at a different x
-N = 12800 # 400 # 4080            # 510, 1020, 2040, 4080
-nt = 3201  # 101  # 1601           # 200+1, 400+1, 800+1, 1600+1
+N = 1600 # 400 # 4080            # 510, 1020, 2040, 4080
+nt = 401  # 101  # 1601           # 200+1, 400+1, 800+1, 1600+1
 dx = 2 / N
 b = 0.01 / np.pi  # viscosity term
 
@@ -46,11 +46,26 @@ def burgers(u_int, t, b, N):
     return dudt
 
 # Different initial conditions:
-curve1=generate_sine_wave(-1,0.77,2,N)
-curve2=generate_sine_wave(-1,0.74,5,N)
-curve3=generate_sine_wave(1,1.79,2,N)
-curve4=generate_sine_wave(1,0.53,5,N)
+# IC 2
+# curve1=generate_sine_wave(-1,0.77,2,N)
+# curve2=generate_sine_wave(-1,0.74,5,N)
+# curve3=generate_sine_wave(1,1.79,2,N)
+# curve4=generate_sine_wave(1,0.53,5,N)
 
+# IC 3
+# curve1=generate_sine_wave(1, 1.62, 0.5,N)
+
+# curve2=generate_sine_wave(1, 0.62, 0.5,N)
+# curve3=generate_sine_wave(-1, 1.02, 1.5,N)
+# curve4=generate_sine_wave(1, 1.81, 1.0,N)
+
+# IC 4 
+# curve1=generate_sine_wave(1,1,2,N)
+
+# IC 5
+curve1=generate_sine_wave(-1,1.5,1,N)
+
+# Tests
 # curve1=generate_sine_wave(1, 1.06, 1.0,N)
 # curve2=generate_sine_wave(-1, 1.82, 1.0,N)
 # curve3=generate_sine_wave(-1, 0.94, 0.5,N)
@@ -61,7 +76,7 @@ curve4=generate_sine_wave(1,0.53,5,N)
 # curve3=generate_sine_wave(-1, 0.64, 1,N)
 # curve4=generate_sine_wave(-1, 1.95, 1,N)
 
-u0 = curve1 + curve2 + curve3 + curve4
+u0 = curve1
 x0 = np.linspace(-1, 1, N + 1) 
 
 # Interior u0 points
@@ -92,31 +107,30 @@ print(u.shape)
 print("--- %s seconds ---" % (time.time() - start_time))
 
 # Export Data
-np.savez(f"Burgers_N{N}_nt{nt}.npz", t=t, x=x0, exact=u)
+# np.savez(f"Burgers_N{N}_nt{nt}.npz", t=t, x=x0, exact=u)
 print("\n --- Data Exported ---")
 
 # Plot graph
-# fig = plt.figure(figsize=(7, 4))
-# plt.pcolormesh(t, x0, u, cmap="rainbow")
-# plt.xlabel("t")
-# plt.ylabel("x")
-# cbar = plt.colorbar(pad=0.05, aspect=10)
-# cbar.set_label("u(t,x)")
-# cbar.mappable.set_clim(-1, 1)
+fig = plt.figure(figsize=(7, 4))
+plt.pcolormesh(t, x0, u, cmap="rainbow")
+plt.xlabel("t")
+plt.ylabel("x")
+cbar = plt.colorbar(pad=0.05, aspect=10)
+cbar.set_label("u(t,x)")
+cbar.mappable.set_clim(-1, 1)
 
-# plt.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 6))
 
-# plt.subplot(2, 1, 1)
-# plt.plot(np.linspace(-1, 1, N+1), curve1, label='Curve 1')
-# plt.plot(np.linspace(-1, 1, N+1), curve2, label='Curve 2')
+plt.subplot(2, 1, 1)
+plt.plot(np.linspace(-1, 1, N+1), curve1, label='Curve 2')
 # plt.plot(np.linspace(-1, 1, N+1), curve3, label='Curve 3')
 # plt.plot(np.linspace(-1, 1, N+1), curve4, label='Curve 4')
-# plt.title('Individual Sine Curves')
-# plt.legend()
+plt.title('Individual Sine Curves')
+plt.legend()
 
-# plt.subplot(2, 1, 2)
-# plt.plot(np.linspace(-1, 1, N+1), u0, label='Sum of Curves', color='red')
-# plt.title('Sum of Sine Curves')
+plt.subplot(2, 1, 2)
+plt.plot(np.linspace(-1, 1, N+1), u0, label='Sum of Curves', color='red')
+plt.title('Sum of Sine Curves')
 
-# plt.tight_layout()
-# plt.show()
+plt.tight_layout()
+plt.show()

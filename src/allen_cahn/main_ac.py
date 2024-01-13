@@ -1,4 +1,4 @@
-"""Run PINN to solve Allen Cahn equation. Only use D=E-3, as the other case is for periodic BC and I've not figured out how to do those yet.
+"""Run PINN to solve Allen Cahn equation. Only use D=E-3, as the other case is for periodic BC and I'm not implementing those yet.
 
 Usage:
     main_ac.py [--D=<DiffCoeff>] [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]

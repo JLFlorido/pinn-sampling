@@ -11,13 +11,16 @@ from scipy.interpolate import RegularGridInterpolator
 import deepxde as dde
 
 # ----------------------------------------------- Load Ground Truth solution from .npz file -----------------------------------------------
-data = np.load("src/burgers_solbased/Burgers2.npz")
-t, x, exact = data["t"], data["x"], data["exact"] #if "exact" dont work its "usol" # t is (100,1). x is (256, 1). u is (100,256)
+data = np.load("src/burgers_solbased/Burgers.npz")
+t, x, exact = data["t"], data["x"], data["usol"] #if "exact" dont work its "usol" # t is (100,1). x is (256, 1). u is (100,256)
 x0=x
 u=exact
 xx, tt = np.meshgrid(x, t)
 X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
+print(t.shape)
+print(x.shape)
+quit()
 # print(y)
 # print("THIS IS Y ^^^")
 # print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
@@ -88,7 +91,7 @@ plt.ylabel("x")
 cbar = plt.colorbar(pad=0.05, aspect=10)
 cbar.set_label("u(t,x)")
 cbar.mappable.set_clim(-1, 1)
-plt.savefig("high_def_image.png", dpi=300)
+# plt.savefig("high_def_image.png", dpi=300)
 plt.show()
 
 # ----------------------------------------------- 3D Plots of Ground Truth gradients and curvatures.-----------------------------------------------

@@ -32,10 +32,8 @@ def generate_cos_wave():
 # Generate four sine waves and add them
 curve1 = generate_sin_wave()
 curve2 = generate_sin_wave()
-curve3 = generate_sin_wave()
-curve4 = generate_cos_wave()
 
-sum_curve = curve1 + curve2 + curve3 + curve4
+sum_curve = curve1 + curve2 #+ curve3 + curve4
 
 # Plot the individual curves and their sum
 plt.figure(figsize=(10, 6))
@@ -43,8 +41,8 @@ plt.figure(figsize=(10, 6))
 plt.subplot(2, 1, 1)
 plt.plot(np.linspace(-1, 1, 1000), curve1, label='Curve 1')
 plt.plot(np.linspace(-1, 1, 1000), curve2, label='Curve 2')
-plt.plot(np.linspace(-1, 1, 1000), curve3, label='Curve 3')
-plt.plot(np.linspace(-1, 1, 1000), curve4, label='Curve 4')
+# plt.plot(np.linspace(-1, 1, 1000), curve3, label='Curve 3')
+# plt.plot(np.linspace(-1, 1, 1000), curve4, label='Curve 4')
 plt.title('Individual Sine Curves')
 plt.legend()
 

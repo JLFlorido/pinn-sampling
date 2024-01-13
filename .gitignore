@@ -4,3 +4,4 @@ results/raw
 *.gif
 src/testing_folder
 *.hdf5
+src/burgers_solbased/Burgers_IC_2*
