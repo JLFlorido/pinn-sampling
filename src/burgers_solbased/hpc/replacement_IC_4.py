@@ -1,6 +1,21 @@
+"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
+replacement_IC_4.py. Running on different IC, a combination of sin curves.
+
+Usage:
+    replacement_IC_4.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    replacement_IC_4.py -h | --help
+Options:
+    -h --help                   Display this help message
+    --k=<hyp_k>                 Hyperparameter k [default: 1]
+    --c=<hyp_c>                 Hyperparameter c [default: 1]
+    --N=<NumDomain>             Number of collocation points for training [default: 2000]
+    --L=<NumResamples>          Number of times points are resampled [default: 100]
+    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --DEP=<depth>               Depth of the network [default: 3]
+    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
+"""
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
-# replacement_IC2_local.py
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 import os
@@ -11,8 +26,6 @@ import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
 import time
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
@@ -20,7 +33,7 @@ dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
-    data = np.load("./Burgers_IC_2.npz")
+    data = np.load("./Burgers_IC_4.npz")
     t, x, exact = data["t"], data["x"], data["usol"].T
     xx, tt = np.meshgrid(x, t)
     X = np.vstack((np.ravel(xx), np.ravel(tt))).T
@@ -120,7 +133,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     net = dde.maps.FNN([2] + [64] * depth + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
 
     def output_transform(x, y): # BC
-        return (1.79 * tf.sin(2 * np.pi * x[:, 0:1])) + (0.53 * tf.sin(5 * np.pi * x[:, 0:1])) - (0.74 * tf.sin(5 * np.pi * x[:, 0:1])) - (0.77 * tf.sin(2 * np.pi * x[:, 0:1])) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
+        return (tf.sin(2 * np.pi * x[:, 0:1])) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
     net.apply_output_transform(output_transform)
     
     # Initial Training before resampling
@@ -130,7 +143,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     model.train(epochs=15000, display_every=300000)
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
-    losshistory, train_state = model.train(display_every=300000)
+    model.train(display_every=300000)
 
     # Measuring error after initial phase. This information is not used by network to train.
     y_pred = model.predict(X_test)
@@ -186,35 +199,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     y_pred = model.predict(X_test)
     error_final = dde.metrics.l2_relative_error(y_true, y_pred)
     time_taken = (time.time()-start_t)
-
-    # Improvised stuff for plotting 
-    def _pack_data(train_state):
-        def merge_values(values):
-            if values is None:
-                return None
-            return np.hstack(values) if isinstance(values, (list, tuple)) else values
-
-        y_train = merge_values(train_state.y_train)
-        y_test = merge_values(train_state.y_test)
-        best_y = merge_values(train_state.best_y)
-        best_ystd = merge_values(train_state.best_ystd)
-        return y_train, y_test, best_y, best_ystd
     
-    y_train, y_test, best_y, best_ystd = _pack_data(train_state) # Extract data from train_state for plotting
-    # Plot graph
-    fig = plt.figure(figsize=(7, 4))
-    plt.scatter(train_state.X_test[:, 1], train_state.X_test[:, 0], c=best_y, cmap="rainbow", marker='o', s=4)
-    plt.xlabel("t")
-    plt.ylabel("x")
-    cbar = plt.colorbar()
-    cbar.set_label("u(t,x)")
-    plt.show()
-
-    dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-                 loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-                 output_dir="./results/raw/local_ic2")
+    dde.saveplot(losshistory, train_state, issave=True, isplot=False, 
+                 loss_fname=f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+                 train_fname=f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+                 test_fname=f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+                 output_dir="../results/additional_info")
     return error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -222,13 +212,14 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    c=1
-    k=1
-    NumDomain=500
-    NumResamples=0
-    method="Random"
-    depth=3
-    input1="residual"
+    args = docopt(__doc__)
+    c=float(args['--c'])
+    k=float(args['--k'])
+    NumDomain=int(args['--N'])
+    NumResamples=int(args['--L'])
+    method=str(args['--IM'])
+    depth=int(args["--DEP"])
+    input1=str(args["--INP1"])
 
     error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
 
@@ -237,9 +228,9 @@ if __name__ == "__main__":
     if np.isscalar(error_final):
         error_final = np.atleast_1d(error_final)
     
-    output_dir = "./results/raw/local_ic2"  # Replace with your desired output directory path
-    error_final_fname = f"ic2_test_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"ic2_test_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    output_dir = "../results/performance_results"  # Replace with your desired output directory path
+    error_final_fname = f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

@@ -46,24 +46,24 @@ def burgers(u_int, t, b, N):
     return dudt
 
 # Different initial conditions:
-# IC 2
-# curve1=generate_sine_wave(-1,0.77,2,N)
-# curve2=generate_sine_wave(-1,0.74,5,N)
-# curve3=generate_sine_wave(1,1.79,2,N)
-# curve4=generate_sine_wave(1,0.53,5,N)
+# IC 2 ### IMPORTANT NOTE frequency needs multiplying by 2 as used 2 * frequency * pi in original sin function
+# Only for IC2 and IC3
+# curve1=generate_sine_wave(-1,0.77,2,N) # so f = 4
+# curve2=generate_sine_wave(-1,0.74,5,N) # so f = 10
+# curve3=generate_sine_wave(1,1.79,2,N) # f=4
+# curve4=generate_sine_wave(1,0.53,5,N) # f =10
 
-# IC 3
-# curve1=generate_sine_wave(1, 1.62, 0.5,N)
+# IC 3 #
+# curve1=generate_sine_wave(1, 0.62, 0.5,N) # f=1
+# curve2=generate_sine_wave(-1, 1.02, 1.5,N) # f=3
+# curve3=generate_sine_wave(1, 1.81, 1.0,N) # f=2
 
-# curve2=generate_sine_wave(1, 0.62, 0.5,N)
-# curve3=generate_sine_wave(-1, 1.02, 1.5,N)
-# curve4=generate_sine_wave(1, 1.81, 1.0,N)
-
+#reverted f for these
 # IC 4 
-# curve1=generate_sine_wave(1,1,2,N)
+# curve1=generate_sine_wave(1,1,2,N) # f=2
 
 # IC 5
-curve1=generate_sine_wave(-1,1.5,1,N)
+curve1=generate_sine_wave(-1,1.5,1,N) #f=1
 
 # Tests
 # curve1=generate_sine_wave(1, 1.06, 1.0,N)
