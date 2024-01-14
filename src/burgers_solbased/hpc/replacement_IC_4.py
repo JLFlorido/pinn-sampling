@@ -228,7 +228,7 @@ if __name__ == "__main__":
     if np.isscalar(error_final):
         error_final = np.atleast_1d(error_final)
     
-    output_dir = "../results/performance_results"  # Replace with your desired output directory path
+    output_dir = "../results/performance_results/burgers_ICs"  # Replace with your desired output directory path
     error_final_fname = f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
     time_taken_fname = f"burgers_IC4_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
