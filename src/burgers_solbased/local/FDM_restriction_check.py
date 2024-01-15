@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 IC="2"
 
 data_restricted = np.load(f"src/burgers_solbased/Burgers_IC_{IC}.npz")
-t_restricted, x_restricted, u_restricted = data_restricted["t"], data_restricted["x"], data_restricted["usol"].T
+t_restricted, x_restricted, u_restricted = data_restricted["t"], data_restricted["x"], data_restricted["usol"]
 
 print(u_restricted.shape)
-print(x_restricted)
-print(t_restricted)
+print(x_restricted.shape)
+print(t_restricted.shape)
 # -- -- -- -- -- -- -- -- -- --
 # Plot the original and reduced matrices
 
-plt.subplot(2, 1, 2)
+plt.figure(figsize=(12, 6))
 plt.imshow(u_restricted, extent=[0, 1, -1, 1], aspect='auto', cmap='rainbow')
 plt.title('Reduced Matrix')
 plt.colorbar()
