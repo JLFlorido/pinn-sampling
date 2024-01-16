@@ -3,13 +3,9 @@ view_final_results.py Objective is to be able to read in the additional info fil
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-IC="2"
+
 # Define the file path
-# file_path = "results/raw/additional_info/allencahn_uxt_D3_Hammersley_k0.5c1.0_N2000_L100_finalypred.dat" #  allen cahn
-# file_path = f"results/raw/additional_info/ic/burgers_IC{IC}_pdedxt_D3_Hammersley_k0.5c1.0_N2000_L100_finalypred.dat" # pdedxt
-# file_path = f"results/raw/additional_info/ic/burgers_IC{IC}_uxt_D3_Hammersley_k0.5c1.0_N2000_L100_finalypred.dat" # uxt
-file_path = f"results/raw/additional_info/ic/burgers_IC{IC}_residual_D3_Random_k1.0c1.0_N2000_L100_finalypred.dat" # wu
+file_path = "results/raw/ac/allencahn_no_replacement_0.001_D3_Hammersley_N1000_finalypred.dat" #  allen cahn
 
 # Load data skipping the first row
 data = np.loadtxt(file_path, skiprows=1)
@@ -33,14 +29,13 @@ for i in range(len(x)):
     idx_a = np.where(unique_x == x[i])[0][0]
     idx_b = np.where(unique_y == y[i])[0][0]
     ab_matrix[idx_b, idx_a] = u[i]
-    
-divnorm = colors.TwoSlopeNorm(vcenter=0)
-plt.pcolormesh(a, b, ab_matrix, cmap='rainbow', norm=divnorm)
+plt.pcolormesh(a, b, ab_matrix, cmap='rainbow')
 plt.xlabel('Time (t)')
 plt.ylabel('Space (x)')
-plt.title(f'PINN Solution for I.C. {IC}, Using RAD')
+plt.title(f'Pinn Solution for AC, no resampling \nand Hammersley initial distribution')
 cbar = plt.colorbar(pad=0.05, aspect=10)
 cbar.set_label("u(t,x)")
+cbar.mappable.set_clim(-1, 1)
 plt.show()
 
 # Plot scatter plot

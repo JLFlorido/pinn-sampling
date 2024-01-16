@@ -92,15 +92,15 @@ divnorm2 = colors.TwoSlopeNorm(vcenter=0)
 plt.figure(figsize=(10, 6))
 contour_plot = plt.contourf(t_256, x_256, u_256.T, levels=40, cmap='rainbow', norm=divnorm)  # Inverted the axes
 plt.colorbar(contour_plot, label='u(x, t)')  # Add colorbar with label
-plt.title('I.C. 2: u(x, t) for N=256, from FDM')
+plt.title(f'I.C. {IC}: u(x, t) for N=256, from FDM')
 plt.xlabel('t')  # Updated xlabel
 plt.ylabel('x')  # Updated ylabel
 
 plt.figure(figsize=(10, 6))
 contour_plot = plt.contourf(t_12800, x_12800, u_12800.T, levels=40, cmap='rainbow', norm=divnorm2)  # Inverted the axes
 plt.colorbar(contour_plot, label='u(x, t)')  # Add colorbar with label
-plt.title('I.C. 2: u(x, t) for N=12800, from FDM')
+plt.title(f'I.C. {IC}: u(x, t) for N=12800, from FDM')
 plt.xlabel('t')  # Updated xlabel
 plt.ylabel('x')  # Updated ylabel
 
-plt.show()
+plt.show() 
