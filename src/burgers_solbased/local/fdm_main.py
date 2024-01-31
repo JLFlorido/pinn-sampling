@@ -44,7 +44,6 @@ def burgers(u_int, t, b, N):
             2 * dx
         )  # Changed and commented out previous version
     return dudt
-
 # Different initial conditions:
 # IC 2 ### IMPORTANT NOTE frequency needs multiplying by 2 as used 2 * frequency * pi in original sin function
 # Only for IC2 and IC3
@@ -54,9 +53,9 @@ def burgers(u_int, t, b, N):
 # curve4=generate_sine_wave(1,0.53,10,N) # f =10
 
 # IC 3 #
-curve1=generate_sine_wave(1, 0.62, 1,N) # f=1
-curve2=generate_sine_wave(-1, 1.02, 3,N) # f=3
-curve3=generate_sine_wave(1, 1.81, 2,N) # f=2
+# curve1=generate_sine_wave(1, 0.62, 1,N) # f=1
+# curve2=generate_sine_wave(-1, 1.02, 3,N) # f=3
+# curve3=generate_sine_wave(1, 1.81, 2,N) # f=2
 
 #reverted f for these
 # IC 4 
@@ -76,10 +75,11 @@ curve3=generate_sine_wave(1, 1.81, 2,N) # f=2
 # curve3=generate_sine_wave(-1, 0.64, 1,N)
 # curve4=generate_sine_wave(-1, 1.95, 1,N)
 # u0 = curve1 + curve2 + curve3 + curve4 # IC 2
-u0 = curve1 + curve2 + curve3 # IC 3
+# u0 = curve1 + curve2 + curve3 # IC 3
 # u0 = curve1 # IC 4, 5
 
 x0 = np.linspace(-1, 1, N + 1) 
+u0 = -np.sin(np.pi*x0)
 
 # Interior u0 points
 u0_int = u0[1:N]
@@ -110,7 +110,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 
 # Export Data
 # np.savez(f"Burgers_N{N}_nt{nt}.npz", t=t, x=x0, exact=u)
-print("\n --- Data Exported ---")
+# print("\n --- Data Exported ---")
 
 # Plot graph
 fig = plt.figure(figsize=(7, 4))
@@ -122,17 +122,17 @@ cbar.set_label("u(t,x)")
 
 plt.figure(figsize=(10, 6))
 
-plt.subplot(2, 1, 1)
-plt.plot(np.linspace(-1, 1, N+1), curve1, label='Curve 1')
-plt.plot(np.linspace(-1, 1, N+1), curve2, label='Curve 2')
-plt.plot(np.linspace(-1, 1, N+1), curve3, label='Curve 3')
-# plt.plot(np.linspace(-1, 1, N+1), curve4, label='Curve 4')
-plt.title('Individual Sine Curves')
-plt.legend()
+# plt.subplot(2, 1, 1)
+# plt.plot(np.linspace(-1, 1, N+1), curve1, label='Curve 1')
+# plt.plot(np.linspace(-1, 1, N+1), curve2, label='Curve 2')
+# plt.plot(np.linspace(-1, 1, N+1), curve3, label='Curve 3')
+# # plt.plot(np.linspace(-1, 1, N+1), curve4, label='Curve 4')
+# plt.title('Individual Sine Curves')
+# plt.legend()
 
 plt.subplot(2, 1, 2)
 plt.plot(np.linspace(-1, 1, N+1), u0, label='Sum of Curves', color='red')
-plt.title('Sum of Sine Curves')
+plt.title('Initial Condition')
 
 plt.tight_layout()
 plt.show()
