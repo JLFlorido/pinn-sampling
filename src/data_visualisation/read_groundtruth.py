@@ -20,7 +20,6 @@ X = np.vstack((np.ravel(xx), np.ravel(tt))).T
 y = exact.flatten()[:, None]
 print(t.shape)
 print(x.shape)
-quit()
 # print(y)
 # print("THIS IS Y ^^^")
 # print(X.shape) # (25600,2) This is the first output of the gen_testdata() function
@@ -84,8 +83,11 @@ d2u_dx2_flat = np.abs(d2u_dx2.flatten()[:,None])
 # l2_error_local = dde.metrics.l2_relative_error(y_true_local, y_pred_local)
 # print(l2_error_local)
 # -------------------- print ground truth burgers
+print(tt.shape)
+print(xx.shape)
+print(u.shape)
 fig = plt.figure(figsize=(7, 4))
-plt.pcolormesh(t, x0, u, cmap="rainbow")
+plt.pcolormesh(tt, xx, u.T, cmap="rainbow")
 plt.xlabel("t")
 plt.ylabel("x")
 cbar = plt.colorbar(pad=0.05, aspect=10)

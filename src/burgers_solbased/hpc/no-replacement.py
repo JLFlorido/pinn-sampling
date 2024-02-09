@@ -25,7 +25,7 @@ import time
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
-dde.optimizers.config.set_LBFGS_options(maxiter=385000)
+dde.optimizers.config.set_LBFGS_options(maxiter=201000)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def give_me_l2(model, X_test, y_true):

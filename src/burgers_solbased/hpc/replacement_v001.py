@@ -141,7 +141,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     model.compile("adam", lr=0.001)
     model.train(epochs=15000, display_every=300000)
     if NumResamples == 0:
-      dde.optimizers.config.set_LBFGS_options(maxiter=385000)
+      dde.optimizers.config.set_LBFGS_options(maxiter=201000)
       model.compile("L-BFGS")
       losshistory, train_state = model.train(display_every=10000) # Last run, saving loss history.
     else:
