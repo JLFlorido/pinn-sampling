@@ -1,9 +1,9 @@
 """Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
-replacement.py. Previously REP-HPC. This version runs once and appends results to a file reflecting the inputs arguments.
+nr_replacement.py. Non-Random replacement. Using a static dense Hammersley distribution to choose points from to avoid the drawbacks of error. However, could be worse than changing random points...
 
 Usage:
-    replacement.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    replacement.py -h | --help
+    nr_replacement.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    nr_replacement.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -26,7 +26,6 @@ import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
@@ -137,14 +136,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     net.apply_output_transform(output_transform)
     
     # Initial Training before resampling
-    time_H = time.time()
-    X = quasirandom(100000, "Hammersley")
-    print(f"Time with Hammersley method = {time.time()-time_H}s")
-    time_R = time.time()
-    X = geomtime.random_points(100000,"pseudo")
-    print(f"Time with Default method = {time.time()-time_R}s")
-
-    quit()
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
@@ -160,8 +151,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print("Finished initial steps. ")
     print(f"l2_relative_error: {l2_error}")
 
-    for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
-        X = geomtime.random_points(100000)
+    X = quasirandom(100000, "Hammersley")
+    for i in range(NumResamples): # Resampling loop begins.nr_
         # --- Below, all the different info sources for resampling
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
@@ -208,9 +199,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     time_taken = (time.time()-start_t)
     
     # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-    #              loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+    #              loss_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+    #              train_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+    #              test_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
     #              output_dir="../results/additional_info")
     return error_final, time_taken
  
@@ -236,8 +227,8 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_final_fname = f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):

@@ -1,18 +1,18 @@
 """Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
-replacement.py. Previously REP-HPC. This version runs once and appends results to a file reflecting the inputs arguments.
-
+nr_replacement_copy.py. Non-Random replacement. Using a static dense Hammersley distribution to choose points from to avoid the drawbacks of error. However, could be worse than changing random points...
+troubleshooting
 Usage:
-    replacement.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    replacement.py -h | --help
+    nr_replacement_copy.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    nr_replacement_copy.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
-    --N=<NumDomain>             Number of collocation points for training [default: 2000]
+    --N=<NumDomain>             Number of collocation points for training [default: 200]
     --L=<NumResamples>          Number of times points are resampled [default: 100]
-    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Hammersley]
     --DEP=<depth>               Depth of the network [default: 3]
-    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
+    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: pdedxt]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
@@ -26,7 +26,6 @@ import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
@@ -137,18 +136,10 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     net.apply_output_transform(output_transform)
     
     # Initial Training before resampling
-    time_H = time.time()
-    X = quasirandom(100000, "Hammersley")
-    print(f"Time with Hammersley method = {time.time()-time_H}s")
-    time_R = time.time()
-    X = geomtime.random_points(100000,"pseudo")
-    print(f"Time with Default method = {time.time()-time_R}s")
-
-    quit()
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000, display_every=300000)
+    model.train(epochs=1500, display_every=300000)
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
     model.train(display_every=300000)
@@ -160,37 +151,20 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print("Finished initial steps. ")
     print(f"l2_relative_error: {l2_error}")
 
-    for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
-        X = geomtime.random_points(100000)
+    X = quasirandom(10000, "Hammersley")
+    for i in range(NumResamples): # Resampling loop begins.nr_
         # --- Below, all the different info sources for resampling
-        if input1 == "residual" or input1 == "pde":
-            Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        elif input1 == "uxt" or input1 == "utx":
-            Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        elif input1 == "uxut1":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)
-        elif input1 == "uxut2":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)/2
-        elif input1 == "uxut3":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.maximum(Y1,Y2)
-        elif input1 == "uxut4":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.sqrt((Y1**2)+(Y2**2))
-        elif input1 == "pdedx":
-            Y = np.abs(model.predict(X, operator=dpde_dx))
-        elif input1 == "pdedt":
-            Y = np.abs(model.predict(X, operator=dpde_dt))
-        elif input1 == "pdedxt" or input1 == "pdext":
-            Y = np.abs(model.predict(X, operator=dpde_dxt))
+        print(X)
+        Y = np.abs(model.predict(X, operator=dpde_dxt)).astype(np.float64)
+        print(Y.shape)
+        Y = np.nan_to_num(Y, nan=0)
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
+        print("look here")
+        print(f"{time.time()-start_t}s")
+        print(err_eq)
+        print(err_eq_normalized)
+        quit()
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
 
@@ -208,9 +182,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     time_taken = (time.time()-start_t)
     
     # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-    #              loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
+    #              loss_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
+    #              train_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
+    #              test_fname=f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
     #              output_dir="../results/additional_info")
     return error_final, time_taken
  
@@ -236,8 +210,8 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_final_fname = f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"nr_replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
