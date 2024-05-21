@@ -13,12 +13,12 @@ Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
-    --N=<NumDomain>             Number of collocation points for training [default: 2000]
+    --N=<NumDomain>             Number of collocation points for training [default: 200]
     --L=<NumResamples>          Number of times points are resampled [default: 100]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
     --DEP=<depth>               Depth of the network [default: 3]
     --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
-"""
+""" 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -196,22 +196,23 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
-
         data.replace_with_anchors(X_selected) # Change current points with selected X points
-        if i == 10:
+        if i == 1:
             X_L10 = X_selected
+            X_L10[:, [0,1]] = X_L10[:,[1,0]]
             Y_L10 = itp(X_L10)
+            print("This might give an error")
             y_pred_l10 = model.predict(X_L10)
-            print("printout")
-            print(Y_L10)
-            print(y_pred_l10)
+            print("It didn't, quit")
+            quit()
             error_LS = [dde.metrics.l2_relative_error(Y_L10, y_pred_l10)]
+
         if i in [11,20, 30, 40, 50, 60, 70, 80, 90, 100]:
             y_pred_ls = model.predict(X_L10)
             error_LS.append(dde.metrics.l2_relative_error(Y_L10, y_pred_ls))
-            print("printout")
-            print(error_LS)
-        
+
+        print(f"printout: {error_LS}")
+
         model.compile("adam", lr=0.001)
         model.train(epochs=1000, display_every=300000)
         model.compile("L-BFGS")
@@ -252,7 +253,7 @@ if __name__ == "__main__":
         error_final = np.atleast_1d(error_final)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    # error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    error_final_fname = f"forgetting_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
     # time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     error_LS_fname = f"Forgetting_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}.txt"
     
@@ -261,7 +262,7 @@ if __name__ == "__main__":
         os.mkdir(output_dir)
 
     # Define the full file paths
-    # error_final_fname = os.path.join(output_dir, error_final_fname)
+    error_final_fname = os.path.join(output_dir, error_final_fname)
     # time_taken_fname = os.path.join(output_dir, time_taken_fname)
     error_LS_fname = os.path.join(output_dir,error_LS_fname)
     # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
@@ -281,6 +282,6 @@ if __name__ == "__main__":
                 print(f"An exception occurred again: {e2}")
 
     # Use function to append to file.
-    # append_to_file(error_final_fname, error_final)
+    append_to_file(error_final_fname, error_final)
     # append_to_file(time_taken_fname, time_taken)
     append_to_file(error_LS_fname, error_LS)
