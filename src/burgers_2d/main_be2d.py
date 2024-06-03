@@ -1,24 +1,19 @@
-"""Run PINN to solve Burger's Equation using adaptive resampling (RAD) based on gradient/curvature information. 
-areweforgetting.py. Standard replacement: However, we're saving a sample distribution and testing if the network loses predictive capability on that set later on in training.
-
-To Do:
-Add code that at L=10 saves the point distribution
-Add code that at L=20,30,40,...,100 tests the network on the L=10 distribution
-Add code that saves the results of the above.
+"""Run PINN to solve Burger's Equation in 2D using adaptive resampling.
+main_be2d.py. 
 
 Usage:
-    areweforgetting.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    areweforgetting.py -h | --help
+    main_be2d.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    main_be2d.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
-    --N=<NumDomain>             Number of collocation points for training [default: 200]
-    --L=<NumResamples>          Number of times points are resampled [default: 100]
+    --N=<NumDomain>             Number of collocation points for training [default: 2000]
+    --L=<NumResamples>          Number of times points are resampled [default: 2]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
     --DEP=<depth>               Depth of the network [default: 3]
     --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
-""" 
+"""
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -32,7 +27,6 @@ from deepxde.backend import tf
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from scipy.interpolate import RegularGridInterpolator
 
 os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 dde.config.set_default_float("float64")
@@ -40,19 +34,14 @@ dde.optimizers.config.set_LBFGS_options(maxiter=1000)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def gen_testdata(): # This function opens the ground truth solution. Need to change path directory for running in ARC.
-    data = np.load("./Burgers.npz")
-    t, x, exact = data["t"], data["x"], data["usol"].T
-    xx, tt = np.meshgrid(x, t)
-    X = np.vstack((np.ravel(xx), np.ravel(tt))).T
-    y = exact.flatten()[:, None]
-    x=np.squeeze(x)
-    t=np.squeeze(t)
-    exact=np.squeeze(exact)
-    itp = RegularGridInterpolator( (t, x), exact, method='linear', bounds_error=False, fill_value=None)
-    return X, y, itp
+    X = np.load("./src/burgers_2d/X.npy")
+    Y = np.load("./src/burgers_2d/Y.npy")
+    results_u = np.load("./src/burgers_2d/results_u.npy")
+    results_v = np.load("./src/burgers_2d/results_v.npy")
+    return X, Y, results_u, results_v
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
-    space = [(-1.0, 1.0), (0.0, 1.0)]
+    space = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
     if sampler == "LHS":
         sampler = skopt.sampler.Lhs(
             lhs_type="centered", criterion="maximin", iterations=1000
@@ -84,46 +73,33 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
 
-    
     def pde(x, y): # Define Burgers PDE
-        print("Look here")
-        print(y)
-        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
-        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
-        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
+        print("2d Look here")
+        u, v = y[0], y[1]
+        du_x = dde.grad.jacobian(u, x, i=0, j=0)
+        print("No error")
         quit()
-        return dy_t + y * dy_x - 0.01 / np.pi * dy_xx
+        du_t = dde.grad.jacobian(u, x, i=0, j=2)
+        du_xx = dde.grad.hessian(u, x, i=0, j=0)
+        du_y = dde.grad.jacobian(u, x, i=0, j=1)
+        du_yy = dde.grad.hessian(u, x, i=0, j=0)
+        pde_u = du_t + u * du_x + v * du_y - 0.01 / np.pi * du_xx - 0.01 / np.pi * du_yy
+        
+        dv_x = dde.grad.jacobian(v, x, i=0, j=0)
+        dv_t = dde.grad.jacobian(v, x, i=0, j=2)
+        dv_xx = dde.grad.hessian(v, x,  i=0, j=0)
+        dv_y = dde.grad.jacobian(v, x, i=0, j=1)
+        dv_yy = dde.grad.hessian(v, x, i=1, j=1)
+        pde_v = dv_t + u * dv_x + v * dv_y - 0.01 / np.pi * dv_xx - 0.01 / np.pi * dv_yy
+        print("ran with no errors")
+        quit()
+        return [pde_u, pde_v]
     
 
-    def dudx(x,y): # Returns gradient in x
-        return dde.grad.jacobian(y, x, i=0, j=0)
-    def dudt(x,y): # Returns gradient in y
-        return dde.grad.jacobian(y,x, i=0, j=1)
-    def du_xt(x,y): # Returns curvature in xt
-        return dde.grad.hessian(y,x,i=1,j=0)
-    def dpde_dx(x,y): #residual wrt x
-        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
-        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
-        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
-        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx
-        return dde.grad.jacobian(pde, x, i=0, j=0)
-    def dpde_dt(x,y): #residual wrt y
-        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
-        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
-        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
-        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx    
-        return dde.grad.jacobian(pde, x, i=0, j=1)
-    def dpde_dxt(x,y): #residual wrt y
-        dy_x = dde.grad.jacobian(y, x, i=0, j=0)
-        dy_t = dde.grad.jacobian(y, x, i=0, j=1)
-        dy_xx = dde.grad.hessian(y, x, i=0, j=0)
-        pde = dy_t + y * dy_x - 0.01 / np.pi * dy_xx    
-        return dde.grad.hessian(pde, x, i=1, j=0)
-
-    X_test, y_true, itp = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
+    X_test, Y_test, u_true, v_true = gen_testdata() # Ground Truth Solution.
 
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
-    geom = dde.geometry.Interval(-1, 1)
+    geom = dde.geometry.Rectangle([0, 0],[1,1])
     timedomain = dde.geometry.TimeDomain(0, 1)
     geomtime = dde.geometry.GeometryXTime(geom, timedomain)
     if method == "Grid":
@@ -146,17 +122,23 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             anchors=sample_pts,
         )
 
-    net = dde.maps.FNN([2] + [64] * depth + [1], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
+    net = dde.maps.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # This defines the NN layers, their size and activation functions.
 
     def output_transform(x, y): # BC
-        return -tf.sin(np.pi * x[:, 0:1]) + (1 - x[:, 0:1] ** 2) * (x[:, 1:]) * y
+        u = tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3]) * y[:,0]
+        v = tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3]) * y[:,1]
+        return u, v 
     net.apply_output_transform(output_transform)
     
     # Initial Training before resampling
+    X = geomtime.random_points(100000,"pseudo")
+
     model = dde.Model(data, net)
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
     model.train(epochs=1500, display_every=300000)
+    print("Does it run with no errors?")
+    quit()
     print("Initial L-BFGS steps")
     model.compile("L-BFGS")
     model.train(display_every=300000)
@@ -173,51 +155,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         # --- Below, all the different info sources for resampling
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-        elif input1 == "uxt" or input1 == "utx":
-            Y = np.abs(model.predict(X, operator=du_xt)).astype(np.float64)
-        elif input1 == "uxut1":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)
-        elif input1 == "uxut2":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = (Y1+Y2)/2
-        elif input1 == "uxut3":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.maximum(Y1,Y2)
-        elif input1 == "uxut4":
-            Y1 = np.abs(model.predict(X, operator=dudx)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=dudt)).astype(np.float64)
-            Y = np.sqrt((Y1**2)+(Y2**2))
-        elif input1 == "pdedx":
-            Y = np.abs(model.predict(X, operator=dpde_dx))
-        elif input1 == "pdedt":
-            Y = np.abs(model.predict(X, operator=dpde_dt))
-        elif input1 == "pdedxt" or input1 == "pdext":
-            Y = np.abs(model.predict(X, operator=dpde_dxt))
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
+
         data.replace_with_anchors(X_selected) # Change current points with selected X points
-       
-        if i == 1:
-            X_L10 = X_selected
-            X_L10[:, [0,1]] = X_L10[:,[1,0]]
-            Y_L10 = itp(X_L10)
-            y_pred_l10 = model.predict(X_L10)
-
-            # plt.figure()
-            # plt.scatter(X_L10[:,0],X_L10[:,1], c=Y_L10,cmap='rainbow')
-            # plt.show()
-            error_LS = [dde.metrics.l2_relative_error(Y_L10, y_pred_l10)]
-
-        if i in [11, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
-            y_pred_ls = model.predict(X_L10)
-            error_LS.append(dde.metrics.l2_relative_error(Y_L10, y_pred_ls))
-            print(f"printout: {error_LS}")
 
         model.compile("adam", lr=0.001)
         model.train(epochs=1000, display_every=300000)
@@ -225,9 +168,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         model.train(display_every=300000)
 
         print("!\nFinished loop #{}\n".format(i+1))
-        y_pred = model.predict(X_test)
-        l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
-        print(f"l2_relative_error: {l2_error}")
 
     y_pred = model.predict(X_test)
     error_final = dde.metrics.l2_relative_error(y_true, y_pred)
@@ -238,7 +178,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
     #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
     #              output_dir="../results/additional_info")
-    return error_final, time_taken, error_LS
+    return error_final, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Calling main and saving results
@@ -254,26 +194,25 @@ if __name__ == "__main__":
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
 
-    error_final, time_taken, error_LS = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
     if np.isscalar(error_final):
         error_final = np.atleast_1d(error_final)
-
+    
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"forgetting_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    # time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
-    error_LS_fname = f"Forgetting_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}.txt"
-
+    error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
     # Define the full file paths
     error_final_fname = os.path.join(output_dir, error_final_fname)
-    # time_taken_fname = os.path.join(output_dir, time_taken_fname)
-    error_LS_fname = os.path.join(output_dir,error_LS_fname)
+    time_taken_fname = os.path.join(output_dir, time_taken_fname)
+    
     # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
     # the file is locked for saving by a different job.
     def append_to_file(file_path, data):
@@ -292,5 +231,4 @@ if __name__ == "__main__":
 
     # Use function to append to file.
     append_to_file(error_final_fname, error_final)
-    # append_to_file(time_taken_fname, time_taken)
-    append_to_file(error_LS_fname, error_LS)
+    append_to_file(time_taken_fname, time_taken)
