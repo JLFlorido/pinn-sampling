@@ -86,12 +86,9 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
     
     def pde(x, y): # Define Burgers PDE
-        print("Look here")
-        print(y)
         dy_x = dde.grad.jacobian(y, x, i=0, j=0)
         dy_t = dde.grad.jacobian(y, x, i=0, j=1)
         dy_xx = dde.grad.hessian(y, x, i=0, j=0)
-        quit()
         return dy_t + y * dy_x - 0.01 / np.pi * dy_xx
     
 
@@ -121,7 +118,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         return dde.grad.hessian(pde, x, i=1, j=0)
 
     X_test, y_true, itp = gen_testdata() # Ground Truth Solution. (25600,2) coordinates and corresponding (25600,1) values of u.
-
+    
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     geom = dde.geometry.Interval(-1, 1)
     timedomain = dde.geometry.TimeDomain(0, 1)
@@ -163,6 +160,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
     # Measuring error after initial phase. This information is not used by network to train.
     y_pred = model.predict(X_test)
+    print(y_pred.shape)
+    quit()
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
     
     print("Finished initial steps. ")
