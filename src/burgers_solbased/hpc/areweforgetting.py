@@ -161,7 +161,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     # Measuring error after initial phase. This information is not used by network to train.
     y_pred = model.predict(X_test)
     print(y_pred.shape)
-    quit()
+    # quit()
     l2_error = dde.metrics.l2_relative_error(y_true, y_pred)
     
     print("Finished initial steps. ")

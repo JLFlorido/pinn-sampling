@@ -1,15 +1,15 @@
 """Run PINN to solve Burger's Equation in 2D using adaptive resampling.
-main_be2d.py. 
+be2d_main.py. 
 
 Usage:
-    main_be2d.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    main_be2d.py -h | --help
+    be2d_main.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    be2d_main.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
-    --N=<NumDomain>             Number of collocation points for training [default: 200]
-    --L=<NumResamples>          Number of times points are resampled [default: 2]
+    --N=<NumDomain>             Number of collocation points for training [default: 1000]
+    --L=<NumResamples>          Number of times points are resampled [default: 0]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
     --DEP=<depth>               Depth of the network [default: 3]
     --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
@@ -26,7 +26,7 @@ import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
 import time
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 # os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 # dde.config.set_default_float("float64")
@@ -44,7 +44,15 @@ def gen_testdata(): # This function opens the ground truth solution at a fixed u
     u = results_u.flatten()[:,None]
     results_v = np.load("./src/burgers_2d/results_v.npy")
     v = results_v.flatten()[:,None]
-    return xyt, u, v
+    u = np.squeeze(u)
+    v = np.squeeze(v)
+    
+    indices_x0 = np.where(xyt[:, 0] == 0)[0]
+    indices_x1 = np.where(xyt[:, 0] == 1)[0]
+    indices_y0 = np.where(xyt[:, 1] == 0)[0]
+    indices_y1 = np.where(xyt[:, 1] == 1)[0]
+
+    return xyt, indices_x0, indices_y0, indices_x1, indices_y1, u, v
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
     space = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
@@ -101,6 +109,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     timedomain = dde.geometry.TimeDomain(0, 1) # Time domain is a line from 0 to 1.
     geomtime = dde.geometry.GeometryXTime(spacedomain, timedomain)
 
+    xyt, indices_x0, indices_y0, indices_x1, indices_y1, u_true, v_true = gen_testdata()
+
     # if method == "Grid":
     #     data = dde.data.TimePDE(
     #         geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
@@ -131,13 +141,20 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     # net = dde.maps.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
     net = dde.nn.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
 
-    def output_transform(x, y): # BC
+    def output_transform(x, y): # BC        
+        y1 = y[:, 0:1]
+        y2 = y[:, 1:2]
+        # u = tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3]) * y[:,0]
+        # v = tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3]) * y[:,1]
+        return tf.concat(
+                [
+                tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3])* y1,
+                tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3])* y2
+                ],
+                axis=1)
+        # return u, v
 
-        u = tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3]) * y[:,0]
-        v = tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3]) * y[:,1]
-        
-        return dde.backend.stack((u, v), axis=1)
-    # net.apply_output_transform(output_transform)
+    net.apply_output_transform(output_transform)
     
     model = dde.Model(data, net)
 
@@ -145,26 +162,15 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     # Initial Training before resampling
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15, display_every=1000)
+    model.train(epochs=5000, display_every=1000)
     # print("Initial L-BFGS steps")
     # model.compile("L-BFGS")
     # model.train(display_every=1000)
-    print("Initial training done with no errors")
     # Measuring error after initial phase. This information is not used by network to train.
-    xyt, u_true, v_true = gen_testdata()
-    print(xyt.shape)
+    # print(xyt.shape)
     pred = model.predict(xyt)
-    print(pred.shape)
-    # print(pred_u.shape)
-    # print(pred_v.shape)
-    # print(pred_u)
-    print("What does y_pred look like...")
-    quit()
-    print(u_pred.shape)
-    print(v_pred.shape)
-    print(u_pred)
-
-
+    u_pred = pred[:,0]
+    v_pred = pred[:,1]
 
     l2_error_u = dde.metrics.l2_relative_error(u_true, u_pred)
     l2_error_v = dde.metrics.l2_relative_error(v_true, v_pred)
@@ -173,13 +179,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"l2_relative_error_u: {l2_error_u}")
     print(f"l2_relative_error_v: {l2_error_v}")
 
-    quit()
-
     for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
         # --- Below, all the different info sources for resampling
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
+            Y = np.add(Y[0,:],Y[1,:])
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -194,8 +199,116 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
         print("!\nFinished loop #{}\n".format(i+1))
 
-    y_pred = model.predict(X_test)
-    error_final = dde.metrics.l2_relative_error(y_true, y_pred)
+        pred = model.predict(xyt)
+        u_pred = pred[:,0]
+        v_pred = pred[:,1]
+
+        l2_error_u = dde.metrics.l2_relative_error(u_true, u_pred)
+        l2_error_v = dde.metrics.l2_relative_error(v_true, v_pred)
+
+        print(f"l2_relative_error_u: {l2_error_u}")
+        print(f"l2_relative_error_v: {l2_error_v}")
+
+    y_pred = model.predict(xyt)
+    u_pred = y_pred[:,0]
+    v_pred = y_pred[:,1]
+    error_final_u = dde.metrics.l2_relative_error(u_true, u_pred)
+    error_final_v = dde.metrics.l2_relative_error(v_true, v_pred)
+    print(f"error_final_u is: {error_final_u}")
+    print(f"error_final_v is: {error_final_v}")
+
+
+    # -------------------------------------------------
+    # Figures for checking u, v, and bc qualitatively, as error was quite far.
+    # Plotting both u and v to check.
+    fig = plt.figure(figsize=(14, 10))
+
+    ax1 = fig.add_subplot(221, projection='3d')
+    ax1.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_pred)
+    ax1.set_title('u_pred')
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('y')
+    ax1.set_zlabel('t')
+
+    ax2 = fig.add_subplot(222, projection='3d')
+    ax2.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_true)
+    ax2.set_title('u_true')
+    ax2.set_xlabel('x')
+    ax2.set_ylabel('y')
+    ax2.set_zlabel('t')
+
+    ax3 = fig.add_subplot(223, projection='3d')
+    ax3.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_pred)
+    ax3.set_title('v_pred')
+    ax3.set_xlabel('x')
+    ax3.set_ylabel('y')
+    ax3.set_zlabel('t')
+
+    ax4 = fig.add_subplot(224, projection='3d')
+    ax4.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_true)
+    ax4.set_title('v_true')
+    ax4.set_xlabel('x')
+    ax4.set_ylabel('y')
+    ax4.set_zlabel('t')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Here plotting slices to check B.C.s
+    # fig1, axs = plt.subplots(1, 2, figsize=(10, 5))
+    # axs[0].scatter(xyt[0::11,0], xyt[0::11,1], c=u_pred[0::11], marker='o')
+    # axs[0].set_title('u_pred t=0')
+    # axs[0].set_xlabel('X')
+    # axs[0].set_ylabel('Y')
+
+    # axs[1].scatter(xyt[0::11,0], xyt[0::11,1], c=u_true[0::11], marker='o')
+    # axs[1].set_title('u_true t=0')
+    # axs[1].set_xlabel('X')
+    # axs[1].set_ylabel('Y')
+
+    # # Second Figure
+    # fig2, axs2 = plt.subplots(1, 2, figsize=(10, 5))
+    # axs2[0].scatter(xyt[indices_x0,2], xyt[indices_x0,1], c=u_pred[indices_x0], marker='o')
+    # axs2[0].set_title('u_pred x=0')
+    # axs2[0].set_xlabel('t')
+    # axs2[0].set_ylabel('Y')
+
+    # axs2[1].scatter(xyt[indices_x0,2], xyt[indices_x0,1], c=u_true[indices_x0], marker='o')
+    # axs2[1].set_title('u_true x=0')
+    # axs2[1].set_xlabel('t')
+    # axs2[1].set_ylabel('Y')
+
+    # # Third Figure
+    # fig3, axs3 = plt.subplots(1, 2, figsize=(10, 5))
+    # scatter32 = axs3[0].scatter(xyt[indices_x1,2], xyt[indices_x1,1], c=u_pred[indices_x1], marker='o')
+    # cbar32 = plt.colorbar(scatter32, ax=axs3[1])
+    # axs3[0].set_title('u_pred x=1')
+    # axs3[0].set_xlabel('t')
+    # axs3[0].set_ylabel('X')
+
+    # scatter33 = axs3[1].scatter(xyt[indices_x1,2], xyt[indices_x1,1], c=u_true[indices_x1], marker='o')
+    # cbar33 = plt.colorbar(scatter33, ax=axs3[1])
+    # axs3[1].set_title('u_true x=1')
+    # axs3[1].set_xlabel('t')
+    # axs3[1].set_ylabel('X')
+    
+    # plt.tight_layout()
+    # plt.show()
+
+    # The following works for X, Y meshgrid, for a specific t. 
+    # Would require re-creating the meshgrid from xyt, and appropriately selecting u_pred, so might not be worth the hassle
+    # fig = plt.figure()
+    # ax = plt.axes(projection='3d')
+    # ax.plot_surface(X, Y, u_pred, cmap='viridis')
+    # ax.set_zlim(-1, 1)
+
+    # ax.set_xlabel("x")
+    # ax.set_ylabel("y")
+
+    # ax.elev = 35
+    # ax.azim = -30
+    # plt.show()
+    # ------------------------- end of figures.
     time_taken = (time.time()-start_t)
     
     # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
@@ -203,7 +316,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
     #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
     #              output_dir="../results/additional_info")
-    return error_final, time_taken
+    return error_final_u, error_final_v, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Calling main and saving results
@@ -219,24 +332,24 @@ if __name__ == "__main__":
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
 
-    error_final, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    error_final_u, error_final_v, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
-    if np.isscalar(error_final):
-        error_final = np.atleast_1d(error_final)
+    if np.isscalar(error_final_u):
+        error_final = np.atleast_1d(error_final_u)
     
     output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    # error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
+    # time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
     # Define the full file paths
-    error_final_fname = os.path.join(output_dir, error_final_fname)
-    time_taken_fname = os.path.join(output_dir, time_taken_fname)
+    # error_final_fname = os.path.join(output_dir, error_final_fname)
+    # time_taken_fname = os.path.join(output_dir, time_taken_fname)
     
     # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
     # the file is locked for saving by a different job.
@@ -255,5 +368,5 @@ if __name__ == "__main__":
                 print(f"An exception occurred again: {e2}")
 
     # Use function to append to file.
-    append_to_file(error_final_fname, error_final)
-    append_to_file(time_taken_fname, time_taken)
+    # append_to_file(error_final_fname, error_final)
+    # append_to_file(time_taken_fname, time_taken)
