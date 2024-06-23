@@ -9,8 +9,8 @@ Options:
     --k=<hyp_k>                 Hyperparameter k [default: 1]
     --c=<hyp_c>                 Hyperparameter c [default: 1]
     --N=<NumDomain>             Number of collocation points for training [default: 1000]
-    --L=<NumResamples>          Number of times points are resampled [default: 0]
-    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --L=<NumResamples>          Number of times points are resampled [default: 1]
+    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Hammersley]
     --DEP=<depth>               Depth of the network [default: 3]
     --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
 """
@@ -47,12 +47,12 @@ def gen_testdata(): # This function opens the ground truth solution at a fixed u
     u = np.squeeze(u)
     v = np.squeeze(v)
     
-    indices_x0 = np.where(xyt[:, 0] == 0)[0]
-    indices_x1 = np.where(xyt[:, 0] == 1)[0]
-    indices_y0 = np.where(xyt[:, 1] == 0)[0]
-    indices_y1 = np.where(xyt[:, 1] == 1)[0]
+    # indices_x0 = np.where(xyt[:, 0] == 0)[0] # This finds the coordinates where x and y = 0, 1
+    # indices_x1 = np.where(xyt[:, 0] == 1)[0]
+    # indices_y0 = np.where(xyt[:, 1] == 0)[0]
+    # indices_y1 = np.where(xyt[:, 1] == 1)[0]
 
-    return xyt, indices_x0, indices_y0, indices_x1, indices_y1, u, v
+    return xyt, u, v
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
     space = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
@@ -104,65 +104,115 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         pde_v = dv_t + (u_vel * dv_x) + (v_vel * dv_y) - (0.01 / np.pi * dv_xx) - (0.01 / np.pi * dv_yy)
         return [pde_u, pde_v]
     
+    def u_xy(x, u):
+        u_vel = u[:, 0:1]
+        return dde.grad.hessian(u_vel, x, i=0, j=1)
+    
+    def u_xyt(x, u):
+        uxy= u_xy(x, u)
+        return dde.grad.jacobian(uxy, x, i=0, j=2)
+    
+    def v_xy(x, u):
+        v_vel = u[:, 1:2]
+        return dde.grad.hessian(v_vel, x, i=0, j=1)
+    
+    def v_xyt(x, u):
+        vxy = v_xy(x, u)
+        return dde.grad.jacobian(vxy, x, i=0, j=1)
+        
+    def pde_u_xy(x, u):
+        pde_u = pde(x,u)
+        pde_u = pde_u[0]
+        return dde.grad.hessian(pde_u, x, component = 0, i=0, j=1)
+
+    def pde_u_xyt(x,u):
+        pde_uxy = pde_u_xy(x,u)
+        return dde.grad.jacobian(pde_uxy,x,i=0,j=2)
+    
+    def pde_v_xy(x,u):
+        pde_v = pde(x, u)
+        pde_v = pde_v[1]
+        return dde.grad.hessian(pde_v, x, i=0, j=1)
+    
+    def pde_v_xyt(x,u):
+        pde_vxy = pde_v_xy(x, u)
+        return dde.grad.jacobian(pde_vxy, x, i=0, j=2)
+    
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     spacedomain = dde.geometry.Rectangle(xmin=[0, 0],xmax=[1,1]) # The x,y domain is a rectangle with corners 0,0 to 1,1.
     timedomain = dde.geometry.TimeDomain(0, 1) # Time domain is a line from 0 to 1.
     geomtime = dde.geometry.GeometryXTime(spacedomain, timedomain)
 
-    xyt, indices_x0, indices_y0, indices_x1, indices_y1, u_true, v_true = gen_testdata()
+    xyt, u_true, v_true = gen_testdata()
 
-    # if method == "Grid":
-    #     data = dde.data.TimePDE(
-    #         geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
-    #     )
-    # elif method == "Random":
-    #     data = dde.data.TimePDE(
-    #         geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="pseudo"
-    #     )
-    # elif method in ["LHS", "Halton", "Hammersley", "Sobol"]:
-    #     sample_pts = quasirandom(NumDomain, method)
-    #     data = dde.data.TimePDE(
-    #         geomtime,
-    #         pde,
-    #         [],
-    #         num_domain=0, # Raises eyebrows. Need to check this doesn't cause issue.
-    #         num_test=10000,
-    #         train_distribution="uniform",
-    #         anchors=sample_pts,
-    #     )
-    data = dde.data.TimePDE(
-        geomtime, 
-        pde, 
-        [], 
-        num_domain=NumDomain, 
-        num_test=None, 
-        train_distribution="pseudo"
-    )
+    if method == "Grid":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
+        )
+    elif method == "Random":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="pseudo"
+        )
+    elif method in ["LHS", "Halton", "Hammersley", "Sobol"]:
+        sample_pts = quasirandom(NumDomain, method)
+        data = dde.data.TimePDE(
+            geomtime,
+            pde,
+            [],
+            num_domain=0, # Raises eyebrows. Need to check this doesn't cause issue.
+            num_test=10000,
+            train_distribution="uniform",
+            anchors=sample_pts,
+        )
     # net = dde.maps.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
     net = dde.nn.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
 
     def output_transform(x, y): # BC        
         y1 = y[:, 0:1]
         y2 = y[:, 1:2]
-        # u = tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3]) * y[:,0]
-        # v = tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3]) * y[:,1]
         return tf.concat(
                 [
                 tf.sin(np.pi * x[:, 0:1]) * tf.cos(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 0:1])) * (x[:, 2:3])* y1,
                 tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3])* y2
                 ],
                 axis=1)
-        # return u, v
 
     net.apply_output_transform(output_transform)
     
     model = dde.Model(data, net)
 
-
+    # # Extract current points and plot them - for checking.
+    # points_before = data.train_points()
+    # points_figure = plt.figure(figsize=(6, 5))
+    # ax = points_figure.add_subplot(projection='3d')
+    # ax.scatter(points_before[:, 0], points_before[:, 1], points_before[:, 2])
+    # plt.show()
+    
     # Initial Training before resampling
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=5000, display_every=1000)
+    model.train(epochs=15000, display_every=1000)    
+
+    #   # ------ Testing guiding information; the time taken to evaluate a given thing 
+    # X = geomtime.random_points(1000)
+    # time00 = time.time()
+    # Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
+    # time01= time.time()
+    # print(f"pde shape check:{Y.shape}")
+    # print(f'took {time01-time00}')
+
+    # time10= time.time()
+    # Y = np.abs(model.predict(X, operator=pde_v_xy)).astype(np.float64)
+    # time11= time.time()
+    # print(f"pde_v_xy shape check:{Y.shape}")
+    # print(f'took {time11-time10}')
+    # time20= time.time()
+    # Y = np.abs(model.predict(X, operator=pde_v_xyt)).astype(np.float64)
+    # time21= time.time()
+    # print(f"pde_v_xyt shape check:{Y.shape}")
+    # print(f'took {time21-time20}')
+    # quit()
+    # # --------------- End of testing code snippet
     # print("Initial L-BFGS steps")
     # model.compile("L-BFGS")
     # model.train(display_every=1000)
@@ -185,10 +235,46 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
             Y = np.add(Y[0,:],Y[1,:])
+        elif input1 == "uxy":
+            Y = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
+        elif input1 == "uxyt":
+            Y = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
+        elif input1 == "vxy":
+            Y = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
+        elif input1 == "vxyt":
+            Y = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
+        elif input1 == "pde_uxy":
+            Y = np.abs(model.predict(X, operator=pde_u_xy))
+        elif input1 == "pde_vxy":
+            Y = np.abs(model.predict(X, operator=pde_v_xy))
+        elif input1 == "uvxy":
+            Y1 = np.abs(model.predict(X, operator=u_xy))
+            Y2 = np.abs(model.predict(X, operator=v_xy))
+            Y = np.add(Y1,Y2)
+        elif input1 == "uvxyt":
+            Y1 = np.abs(model.predict(X, operator=u_xyt))
+            Y2 = np.abs(model.predict(X, operator=v_xyt))
+            Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvxy":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xy))
+            Y2 = np.abs(model.predict(X, operator=pde_v_xy))
+            Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvxyt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xyt))
+            Y2 = np.abs(model.predict(X, operator=pde_v_xyt))
+            Y = np.add(Y1,Y2)
+        
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
+
+        # # Extract current points and plot them - for checking.
+        # points_figure = plt.figure(figsize=(6, 5))
+        # ax = points_figure.add_subplot(projection='3d')
+        # ax.scatter(X_selected[:, 0], X_selected[:, 1], X_selected[:, 2])
+        # plt.show()
+        # quit()
 
         data.replace_with_anchors(X_selected) # Change current points with selected X points
 
@@ -221,38 +307,38 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     # -------------------------------------------------
     # Figures for checking u, v, and bc qualitatively, as error was quite far.
     # Plotting both u and v to check.
-    fig = plt.figure(figsize=(14, 10))
+    # fig = plt.figure(figsize=(14, 10))
 
-    ax1 = fig.add_subplot(221, projection='3d')
-    ax1.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_pred)
-    ax1.set_title('u_pred')
-    ax1.set_xlabel('x')
-    ax1.set_ylabel('y')
-    ax1.set_zlabel('t')
+    # ax1 = fig.add_subplot(221, projection='3d')
+    # ax1.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_pred)
+    # ax1.set_title('u_pred')
+    # ax1.set_xlabel('x')
+    # ax1.set_ylabel('y')
+    # ax1.set_zlabel('t')
 
-    ax2 = fig.add_subplot(222, projection='3d')
-    ax2.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_true)
-    ax2.set_title('u_true')
-    ax2.set_xlabel('x')
-    ax2.set_ylabel('y')
-    ax2.set_zlabel('t')
+    # ax2 = fig.add_subplot(222, projection='3d')
+    # ax2.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_true)
+    # ax2.set_title('u_true')
+    # ax2.set_xlabel('x')
+    # ax2.set_ylabel('y')
+    # ax2.set_zlabel('t')
 
-    ax3 = fig.add_subplot(223, projection='3d')
-    ax3.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_pred)
-    ax3.set_title('v_pred')
-    ax3.set_xlabel('x')
-    ax3.set_ylabel('y')
-    ax3.set_zlabel('t')
+    # ax3 = fig.add_subplot(223, projection='3d')
+    # ax3.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_pred)
+    # ax3.set_title('v_pred')
+    # ax3.set_xlabel('x')
+    # ax3.set_ylabel('y')
+    # ax3.set_zlabel('t')
 
-    ax4 = fig.add_subplot(224, projection='3d')
-    ax4.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_true)
-    ax4.set_title('v_true')
-    ax4.set_xlabel('x')
-    ax4.set_ylabel('y')
-    ax4.set_zlabel('t')
+    # ax4 = fig.add_subplot(224, projection='3d')
+    # ax4.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_true)
+    # ax4.set_title('v_true')
+    # ax4.set_xlabel('x')
+    # ax4.set_ylabel('y')
+    # ax4.set_zlabel('t')
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
 
     # Here plotting slices to check B.C.s
     # fig1, axs = plt.subplots(1, 2, figsize=(10, 5))
@@ -332,24 +418,31 @@ if __name__ == "__main__":
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
 
-    error_final_u, error_final_v, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    # error_final_u, error_final_v, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
+    error_final_u = 0.0124142
+    error_final_v = 0.12143
+    time_taken = 34239.332419
 
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
     if np.isscalar(error_final_u):
-        error_final = np.atleast_1d(error_final_u)
+        error_final_u = np.atleast_1d(error_final_u)
+    if np.isscalar(error_final_v):
+        error_final_v = np.atleast_1d(error_final_v)
     
-    output_dir = "../results/performance_results"  # Replace with your desired output directory path
-    # error_final_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final.txt"
-    # time_taken_fname = f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    output_dir = "../pinn-sampling/src/burgers_2d"  # Replace with your desired output directory path
+    error_u_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_u.txt"
+    error_v_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_v.txt"
+    time_taken_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
     
     # If results directory does not exist, create it
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
     # Define the full file paths
-    # error_final_fname = os.path.join(output_dir, error_final_fname)
-    # time_taken_fname = os.path.join(output_dir, time_taken_fname)
+    error_u_fname = os.path.join(output_dir, error_u_fname)
+    error_v_fname = os.path.join(output_dir, error_v_fname)
+    time_taken_fname = os.path.join(output_dir, time_taken_fname)
     
     # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
     # the file is locked for saving by a different job.
@@ -368,5 +461,6 @@ if __name__ == "__main__":
                 print(f"An exception occurred again: {e2}")
 
     # Use function to append to file.
-    # append_to_file(error_final_fname, error_final)
+    # append_to_file(error_u_fname, error_final_u)
+    # append_to_file(error_v_fname, error_final_v)
     # append_to_file(time_taken_fname, time_taken)

@@ -189,7 +189,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         if i in [0,49]:
             import matplotlib.pyplot as plt
             points_before = data.train_points()
-
+            print(points_before.shape)
+            quit()
             if input1 == "pdedxt":
                 np.savetxt(f"points_before_pdext_{i}.txt", points_before)
                 np.savetxt(f"pred_sol_pdext_{i}.txt",Y)

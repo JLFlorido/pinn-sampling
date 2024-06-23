@@ -46,7 +46,6 @@ def gen_testdata(): # This function opens the ground truth solution at a fixed u
     v = results_v.flatten()[:,None]
     u = np.squeeze(u)
     v = np.squeeze(v)
-    
     return xyt, u, v
 
 def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
@@ -82,6 +81,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
 
+    # Defining PDE and all derivatives of u, v, and PDE used for guiding resampling.
     def pde(x, u): # Define Burgers PDE; x has components x,y,t. u has components u and v.
         u_vel, v_vel = u[:, 0:1], u[:, 1:2] # This is needed for calculation of pde_u and pde_v
         du_x = dde.grad.jacobian(u, x, i=0, j=0) # For Jacobian, i dicates u or v, j dictates x, y or t
@@ -98,7 +98,41 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         dv_yy = dde.grad.hessian(u, x, component=1, i=1, j=1)
         pde_v = dv_t + (u_vel * dv_x) + (v_vel * dv_y) - (0.01 / np.pi * dv_xx) - (0.01 / np.pi * dv_yy)
         return [pde_u, pde_v]
+        
+    def u_xy(x, u):
+        u_vel = u[:, 0:1]
+        return dde.grad.hessian(u_vel, x, i=0, j=1)
     
+    def u_xyt(x, u):
+        uxy= u_xy(x, u)
+        return dde.grad.jacobian(uxy, x, i=0, j=2)
+    
+    def v_xy(x, u):
+        v_vel = u[:, 1:2]
+        return dde.grad.hessian(v_vel, x, i=0, j=1)
+    
+    def v_xyt(x, u):
+        vxy = v_xy(x, u)
+        return dde.grad.jacobian(vxy, x, i=0, j=1)
+        
+    def pde_u_xy(x, u):
+        pde_u = pde(x,u)
+        pde_u = pde_u[0]
+        return dde.grad.hessian(pde_u, x, component = 0, i=0, j=1)
+
+    def pde_u_xyt(x,u):
+        pde_uxy = pde_u_xy(x,u)
+        return dde.grad.jacobian(pde_uxy,x,i=0,j=2)
+    
+    def pde_v_xy(x,u):
+        pde_v = pde(x, u)
+        pde_v = pde_v[1]
+        return dde.grad.hessian(pde_v, x, i=0, j=1)
+    
+    def pde_v_xyt(x,u):
+        pde_vxy = pde_v_xy(x, u)
+        return dde.grad.jacobian(pde_vxy, x, i=0, j=2)
+
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     spacedomain = dde.geometry.Rectangle(xmin=[0, 0],xmax=[1,1]) # The x,y domain is a rectangle with corners 0,0 to 1,1.
     timedomain = dde.geometry.TimeDomain(0, 1) # Time domain is a line from 0 to 1.
@@ -106,34 +140,25 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
     xyt, u_true, v_true = gen_testdata()
 
-    # if method == "Grid":
-    #     data = dde.data.TimePDE(
-    #         geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
-    #     )
-    # elif method == "Random":
-    #     data = dde.data.TimePDE(
-    #         geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="pseudo"
-    #     )
-    # elif method in ["LHS", "Halton", "Hammersley", "Sobol"]:
-    #     sample_pts = quasirandom(NumDomain, method)
-    #     data = dde.data.TimePDE(
-    #         geomtime,
-    #         pde,
-    #         [],
-    #         num_domain=0, # Raises eyebrows. Need to check this doesn't cause issue.
-    #         num_test=10000,
-    #         train_distribution="uniform",
-    #         anchors=sample_pts,
-    #     )
-    data = dde.data.TimePDE(
-        geomtime, 
-        pde, 
-        [], 
-        num_domain=NumDomain, 
-        num_test=None, 
-        train_distribution="pseudo"
-    )
-    # net = dde.maps.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
+    if method == "Grid":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="uniform"
+        )
+    elif method == "Random":
+        data = dde.data.TimePDE(
+            geomtime, pde, [], num_domain=NumDomain, num_test=10000, train_distribution="pseudo"
+        )
+    elif method in ["LHS", "Halton", "Hammersley", "Sobol"]:
+        sample_pts = quasirandom(NumDomain, method)
+        data = dde.data.TimePDE(
+            geomtime,
+            pde,
+            [],
+            num_domain=0, # Raises eyebrows. Need to check this doesn't cause issue.
+            num_test=10000,
+            train_distribution="uniform",
+            anchors=sample_pts,
+        )
     net = dde.nn.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
 
     def output_transform(x, y): # BC        
@@ -157,6 +182,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     # print("Initial L-BFGS steps")
     model.compile("L-BFGS")
     model.train(display_every=1000)
+
     # Measuring error after initial phase. This information is not used by network to train.
     pred = model.predict(xyt)
     u_pred = pred[:,0]
@@ -175,6 +201,35 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
             Y = np.add(Y[0,:],Y[1,:])
+        elif input1 == "uxy":
+            Y = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
+        elif input1 == "uxyt":
+            Y = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
+        elif input1 == "vxy":
+            Y = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
+        elif input1 == "vxyt":
+            Y = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
+        elif input1 == "pde_uxy":
+            Y = np.abs(model.predict(X, operator=pde_u_xy))
+        elif input1 == "pde_vxy":
+            Y = np.abs(model.predict(X, operator=pde_v_xy))
+        elif input1 == "uvxy":
+            Y1 = np.abs(model.predict(X, operator=u_xy))
+            Y2 = np.abs(model.predict(X, operator=v_xy))
+            Y = np.add(Y1,Y2)
+        elif input1 == "uvxyt":
+            Y1 = np.abs(model.predict(X, operator=u_xyt))
+            Y2 = np.abs(model.predict(X, operator=v_xyt))
+            Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvxy":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xy))
+            Y2 = np.abs(model.predict(X, operator=pde_v_xy))
+            Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvxyt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xyt))
+            Y2 = np.abs(model.predict(X, operator=pde_v_xyt))
+            Y = np.add(Y1,Y2)
+            
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -235,7 +290,9 @@ if __name__ == "__main__":
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
     if np.isscalar(error_final_u):
-        error_final = np.atleast_1d(error_final_u)
+        error_final_u = np.atleast_1d(error_final_u)
+    if np.isscalar(error_final_v):
+        error_final_v = np.atleast_1d(error_final_v)
     
     output_dir = "../results/be2d/error_time"  # Replace with your desired output directory path
     error_u_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_u.txt"
@@ -251,8 +308,7 @@ if __name__ == "__main__":
     error_v_fname = os.path.join(output_dir, error_v_fname)
     time_taken_fname = os.path.join(output_dir, time_taken_fname)
     
-    # Define function to append to file. The try/exception was to ensure when ran as task array that saving won't fail in the rare case that
-    # the file is locked for saving by a different job.
+    # Define function to append to file. The try/exceptionin case the file was locked for saving by a different job.
     def append_to_file(file_path, data):
         try:    
             with open(file_path, 'ab') as file:
@@ -266,6 +322,7 @@ if __name__ == "__main__":
                     np.savetxt(file, data)
             except Exception as e2:
                 print(f"An exception occurred again: {e2}")
+                print(f"This was the data:\n{data}")
 
     # Use function to append to file.
     append_to_file(error_u_fname, error_final_u)
