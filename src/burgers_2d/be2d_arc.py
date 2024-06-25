@@ -102,33 +102,54 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     def u_xy(x, u):
         u_vel = u[:, 0:1]
         return dde.grad.hessian(u_vel, x, i=0, j=1)
-    
+    def u_xt(x, u):
+        u_vel = u[:, 0:1]
+        return dde.grad.hessian(u_vel, x, i=0, j=2)
+    def u_yt(x, u):
+        u_vel = u[:, 0:1]
+        return dde.grad.hessian(u_vel, x, i=1, j=2)
     def u_xyt(x, u):
         uxy= u_xy(x, u)
         return dde.grad.jacobian(uxy, x, i=0, j=2)
-    
     def v_xy(x, u):
         v_vel = u[:, 1:2]
         return dde.grad.hessian(v_vel, x, i=0, j=1)
-    
+    def v_xt(x, u):
+        v_vel = u[:, 1:2]
+        return dde.grad.hessian(v_vel, x, i=0, j=2)
+    def v_yt(x, u):
+        v_vel = u[:, 1:2]
+        return dde.grad.hessian(v_vel, x, i=1, j=2)
     def v_xyt(x, u):
         vxy = v_xy(x, u)
         return dde.grad.jacobian(vxy, x, i=0, j=1)
-        
     def pde_u_xy(x, u):
         pde_u = pde(x,u)
         pde_u = pde_u[0]
         return dde.grad.hessian(pde_u, x, component = 0, i=0, j=1)
-
+    def pde_u_xt(x, u):
+        pde_u = pde(x,u)
+        pde_u = pde_u[0]
+        return dde.grad.hessian(pde_u, x, component = 0, i=0, j=2)
+    def pde_u_yt(x, u):
+        pde_u = pde(x,u)
+        pde_u = pde_u[0]
+        return dde.grad.hessian(pde_u, x, component = 0, i=1, j=2)
     def pde_u_xyt(x,u):
         pde_uxy = pde_u_xy(x,u)
         return dde.grad.jacobian(pde_uxy,x,i=0,j=2)
-    
     def pde_v_xy(x,u):
         pde_v = pde(x, u)
         pde_v = pde_v[1]
         return dde.grad.hessian(pde_v, x, i=0, j=1)
-    
+    def pde_v_xt(x,u):
+        pde_v = pde(x, u)
+        pde_v = pde_v[1]
+        return dde.grad.hessian(pde_v, x, i=0, j=2)
+    def pde_v_yt(x,u):
+        pde_v = pde(x, u)
+        pde_v = pde_v[1]
+        return dde.grad.hessian(pde_v, x, i=1, j=2)
     def pde_v_xyt(x,u):
         pde_vxy = pde_v_xy(x, u)
         return dde.grad.jacobian(pde_vxy, x, i=0, j=2)
@@ -201,35 +222,39 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
             Y = np.add(Y[0,:],Y[1,:])
-        elif input1 == "uxy":
-            Y = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
-        elif input1 == "uxyt":
-            Y = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
-        elif input1 == "vxy":
-            Y = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
-        elif input1 == "vxyt":
-            Y = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
-        elif input1 == "pde_uxy":
-            Y = np.abs(model.predict(X, operator=pde_u_xy))
-        elif input1 == "pde_vxy":
-            Y = np.abs(model.predict(X, operator=pde_v_xy))
-        elif input1 == "uvxy":
-            Y1 = np.abs(model.predict(X, operator=u_xy))
-            Y2 = np.abs(model.predict(X, operator=v_xy))
+        elif input1 == "uv_xy":
+            Y1 = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "uvxyt":
-            Y1 = np.abs(model.predict(X, operator=u_xyt))
-            Y2 = np.abs(model.predict(X, operator=v_xyt))
+        elif input1 == "uv_xt":
+            Y1 = np.abs(model.predict(X, operator=u_xt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=v_xt)).astype(np.float64)
+            Y = np.add(Y1,Y2)
+        elif input1 == "uv_yt":
+            Y1 = np.abs(model.predict(X, operator=u_yt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=v_yt)).astype(np.float64)
+            Y = np.add(Y1,Y2)
+        elif input1 == "uv_xyt":
+            Y1 = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
             Y = np.add(Y1,Y2)
         elif input1 == "pde_uvxy":
             Y1 = np.abs(model.predict(X, operator=pde_u_xy))
             Y2 = np.abs(model.predict(X, operator=pde_v_xy))
             Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvxt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xt))
+            Y2 = np.abs(model.predict(X, operator=pde_v_xt))
+            Y = np.add(Y1,Y2)
+        elif input1 == "pde_uvyt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_yt))
+            Y2 = np.abs(model.predict(X, operator=pde_v_yt))
+            Y = np.add(Y1,Y2)
         elif input1 == "pde_uvxyt":
             Y1 = np.abs(model.predict(X, operator=pde_u_xyt))
             Y2 = np.abs(model.predict(X, operator=pde_v_xyt))
             Y = np.add(Y1,Y2)
-            
+
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
@@ -276,6 +301,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Read imput arguments from docopts
     args = docopt(__doc__)
     c=float(args['--c'])
     k=float(args['--k'])
@@ -285,8 +311,13 @@ if __name__ == "__main__":
     depth=int(args["--DEP"])
     input1=str(args["--INP1"])
 
+    # Run main code, save 3 results
     error_final_u, error_final_v, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
     print(f'Time taken was: {time_taken}')
+    print(f'Error_u was: {error_final_u}')
+    print(f'Error_v was: {error_final_v}')
+
+    # To ensure no error from save.txt
     if np.isscalar(time_taken):
         time_taken = np.atleast_1d(time_taken)
     if np.isscalar(error_final_u):
@@ -294,7 +325,9 @@ if __name__ == "__main__":
     if np.isscalar(error_final_v):
         error_final_v = np.atleast_1d(error_final_v)
     
-    output_dir = "../results/be2d/error_time"  # Replace with your desired output directory path
+    # Directory to save to
+    output_dir = "../results/be2d/error_time"
+    # File name
     error_u_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_u.txt"
     error_v_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_v.txt"
     time_taken_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
@@ -308,7 +341,7 @@ if __name__ == "__main__":
     error_v_fname = os.path.join(output_dir, error_v_fname)
     time_taken_fname = os.path.join(output_dir, time_taken_fname)
     
-    # Define function to append to file. The try/exceptionin case the file was locked for saving by a different job.
+    # Define function to append to file. The try/exception is in case the file was locked for saving by a different job.
     def append_to_file(file_path, data):
         try:    
             with open(file_path, 'ab') as file:
