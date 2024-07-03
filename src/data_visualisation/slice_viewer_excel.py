@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 
 # Load the Excel file
-excel_file = 'results/spreadsheets/Results - Point Distributions.xlsx'  # Replace with your file path
+excel_file = 'results/spreadsheets/old/Results - Point Distributions.xlsx'  # Replace with your file path
 sheet_name = "PDE_Gradients_xt 2"
 df = pd.read_excel(excel_file, sheet_name=sheet_name, engine='openpyxl')
 

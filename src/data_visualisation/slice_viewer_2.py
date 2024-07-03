@@ -43,6 +43,18 @@ title_numbers = [1, 49]
 def fmt(x, pos):
     return f"{x:.0e}".replace('e', 'E').replace('+', '')
 
+fig = plt.figure(figsize=(4, 3))
+fig, ax = plt.subplots()
+# plt.title(f"Method: {method}"))
+
+ax.scatter(points[0][1, :], points[0][0, :], marker='o', s=4, color='blue')
+ax.tick_params(axis='both', which='both', labelsize=9)
+ax.set_xlim(0, 1)
+ax.set_ylim(-1, 1)
+plt.tight_layout()
+plt.show()
+quit()
+
 # for i in range(2):
 #     plt.figure(figsize=(10, 3))
 #     # plt.title(f"Method: {method}")
