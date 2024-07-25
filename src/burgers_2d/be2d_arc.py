@@ -1,4 +1,4 @@
-"""Run PINN to solve Burger's Equation in 2D using adaptive resampling, adapted to run in ARC (HPC).
+"""Run PINN to solve Burger's Equation in 2D using adaptive resampling, adapted to run in ARC (Leeds HPC).
 be2d_arc.py. 
 
 Usage:
@@ -10,29 +10,27 @@ Options:
     --c=<hyp_c>                 Hyperparameter c [default: 1]
     --N=<NumDomain>             Number of collocation points for training [default: 2000]
     --L=<NumResamples>          Number of times points are resampled [default: 100]
-    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Random]
+    --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Hammersley]
     --DEP=<depth>               Depth of the network [default: 3]
     --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 import os
 from docopt import docopt
+import numpy as np
+import time
+
+# Imports for DeepXDE from Lu Group
 import skopt
 from distutils.version import LooseVersion
 import deepxde as dde
 from deepxde.backend import tf
-import numpy as np
-import time
-# import matplotlib.pyplot as plt
 
-# os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
-# dde.config.set_default_float("float64")
-dde.optimizers.config.set_LBFGS_options(maxiter=1000)
+dde.optimizers.config.set_LBFGS_options(maxiter=1000) # Set max iterations of L-BFGS in each loop
 
-def gen_testdata(): # This function opens the ground truth solution at a fixed uniform set of points.
+def gen_testdata(): # This function opens the ground truth solution at a fixed uniform set of points; for evaluating error.
     X = np.load("./npy_files/X.npy")
     X = X[0,:]
     Y = np.load("./npy_files/Y.npy")
@@ -48,19 +46,15 @@ def gen_testdata(): # This function opens the ground truth solution at a fixed u
     v = np.squeeze(v)
     return xyt, u, v
 
-def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
+def quasirandom(n_samples, sampler): # This function creates the initial distribution specified in docopts; default Hammersley
     space = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
     if sampler == "LHS":
-        sampler = skopt.sampler.Lhs(
-            lhs_type="centered", criterion="maximin", iterations=1000
-        )
+        sampler = skopt.sampler.Lhs(lhs_type="centered", criterion="maximin", iterations=1000)
     elif sampler == "Halton":
         sampler = skopt.sampler.Halton(min_skip=-1, max_skip=-1)
     elif sampler == "Hammersley":
         sampler = skopt.sampler.Hammersly(min_skip=-1, max_skip=-1)
     elif sampler == "Sobol":
-        # Remove the first point [0, 0, ...] and the second point [0.5, 0.5, ...], which
-        # are too special and may cause some error.
         if LooseVersion(skopt.__version__) < LooseVersion("0.9"):
             sampler = skopt.sampler.Sobol(min_skip=2, max_skip=2, randomize=False)
         else:
@@ -68,6 +62,77 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
             return np.array(sampler.generate(space, n_samples + 2)[2:])
     return np.array(sampler.generate(space, n_samples))
 
+def pde(x, u): # Define Burgers PDE; x has components x,y,t. u has components u and v.
+    u_vel, v_vel = u[:, 0:1], u[:, 1:2] # This is needed for calculation of pde_u and pde_v
+    du_x = dde.grad.jacobian(u, x, i=0, j=0) # For Jacobian, i dicates u or v, j dictates x, y or t
+    du_t = dde.grad.jacobian(u, x, i=0, j=2)
+    du_xx = dde.grad.hessian(u, x,component=0, i=0, j=0) # For hessian, component dictates u or v and i,j dictates x,y,t
+    du_y = dde.grad.jacobian(u, x, i=0, j=1)
+    du_yy = dde.grad.hessian(u, x, component=0, i=1, j=1)
+    pde_u = du_t + (u_vel * du_x) + (v_vel * du_y) - (0.01 / np.pi * du_xx) - (0.01 / np.pi * du_yy)
+    
+    dv_x = dde.grad.jacobian(u, x, i=1, j=0)
+    dv_t = dde.grad.jacobian(u, x, i=1, j=2)
+    dv_xx = dde.grad.hessian(u, x, component=1, i=0, j=0)
+    dv_y = dde.grad.jacobian(u, x, i=1, j=1)
+    dv_yy = dde.grad.hessian(u, x, component=1, i=1, j=1)
+    pde_v = dv_t + (u_vel * dv_x) + (v_vel * dv_y) - (0.01 / np.pi * dv_xx) - (0.01 / np.pi * dv_yy)
+    return [pde_u, pde_v]
+
+def u_xy(x, u): # Defining PDE and all derivatives of u, v, and PDE used for guiding resampling.
+    u_vel = u[:, 0:1]
+    return dde.grad.hessian(u_vel, x, i=0, j=1)
+def u_xt(x, u):
+    u_vel = u[:, 0:1]
+    return dde.grad.hessian(u_vel, x, i=0, j=2)
+def u_yt(x, u):
+    u_vel = u[:, 0:1]
+    return dde.grad.hessian(u_vel, x, i=1, j=2)
+def u_xyt(x, u):
+    uxy= u_xy(x, u)
+    return dde.grad.jacobian(uxy, x, i=0, j=2)
+def v_xy(x, u):
+    v_vel = u[:, 1:2]
+    return dde.grad.hessian(v_vel, x, i=0, j=1)
+def v_xt(x, u):
+    v_vel = u[:, 1:2]
+    return dde.grad.hessian(v_vel, x, i=0, j=2)
+def v_yt(x, u):
+    v_vel = u[:, 1:2]
+    return dde.grad.hessian(v_vel, x, i=1, j=2)
+def v_xyt(x, u):
+    vxy = v_xy(x, u)
+    return dde.grad.jacobian(vxy, x, i=0, j=1)
+def pde_u_xy(x, u):
+    pde_u = pde(x,u)
+    pde_u = pde_u[0]
+    return dde.grad.hessian(pde_u, x, i=0, j=1)
+def pde_u_xt(x, u):
+    pde_u = pde(x,u)
+    pde_u = pde_u[0]
+    return dde.grad.hessian(pde_u, x, i=0, j=2)
+def pde_u_yt(x, u):
+    pde_u = pde(x,u)
+    pde_u = pde_u[0]
+    return dde.grad.hessian(pde_u, x, i=1, j=2)
+def pde_u_xyt(x,u):
+    pde_uxy = pde_u_xy(x,u)
+    return dde.grad.jacobian(pde_uxy,x,i=0,j=2)
+def pde_v_xy(x,u):
+    pde_v = pde(x, u)
+    pde_v = pde_v[1]
+    return dde.grad.hessian(pde_v, x, i=0, j=1)
+def pde_v_xt(x,u):
+    pde_v = pde(x, u)
+    pde_v = pde_v[1]
+    return dde.grad.hessian(pde_v, x, i=0, j=2)
+def pde_v_yt(x,u):
+    pde_v = pde(x, u)
+    pde_v = pde_v[1]
+    return dde.grad.hessian(pde_v, x, i=1, j=2)
+def pde_v_xyt(x,u):
+    pde_vxy = pde_v_xy(x, u)
+    return dde.grad.jacobian(pde_vxy, x, i=0, j=2)
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Main code start
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -76,83 +141,11 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
+    print(f"NumResamples equals {NumResamples}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
     print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
-
-    # Defining PDE and all derivatives of u, v, and PDE used for guiding resampling.
-    def pde(x, u): # Define Burgers PDE; x has components x,y,t. u has components u and v.
-        u_vel, v_vel = u[:, 0:1], u[:, 1:2] # This is needed for calculation of pde_u and pde_v
-        du_x = dde.grad.jacobian(u, x, i=0, j=0) # For Jacobian, i dicates u or v, j dictates x, y or t
-        du_t = dde.grad.jacobian(u, x, i=0, j=2)
-        du_xx = dde.grad.hessian(u, x,component=0, i=0, j=0) # For hessian, component dictates u or v and i,j dictates x,y,t
-        du_y = dde.grad.jacobian(u, x, i=0, j=1)
-        du_yy = dde.grad.hessian(u, x, component=0, i=1, j=1)
-        pde_u = du_t + (u_vel * du_x) + (v_vel * du_y) - (0.01 / np.pi * du_xx) - (0.01 / np.pi * du_yy)
-        
-        dv_x = dde.grad.jacobian(u, x, i=1, j=0)
-        dv_t = dde.grad.jacobian(u, x, i=1, j=2)
-        dv_xx = dde.grad.hessian(u, x, component=1, i=0, j=0)
-        dv_y = dde.grad.jacobian(u, x, i=1, j=1)
-        dv_yy = dde.grad.hessian(u, x, component=1, i=1, j=1)
-        pde_v = dv_t + (u_vel * dv_x) + (v_vel * dv_y) - (0.01 / np.pi * dv_xx) - (0.01 / np.pi * dv_yy)
-        return [pde_u, pde_v]
-        
-    def u_xy(x, u):
-        u_vel = u[:, 0:1]
-        return dde.grad.hessian(u_vel, x, i=0, j=1)
-    def u_xt(x, u):
-        u_vel = u[:, 0:1]
-        return dde.grad.hessian(u_vel, x, i=0, j=2)
-    def u_yt(x, u):
-        u_vel = u[:, 0:1]
-        return dde.grad.hessian(u_vel, x, i=1, j=2)
-    def u_xyt(x, u):
-        uxy= u_xy(x, u)
-        return dde.grad.jacobian(uxy, x, i=0, j=2)
-    def v_xy(x, u):
-        v_vel = u[:, 1:2]
-        return dde.grad.hessian(v_vel, x, i=0, j=1)
-    def v_xt(x, u):
-        v_vel = u[:, 1:2]
-        return dde.grad.hessian(v_vel, x, i=0, j=2)
-    def v_yt(x, u):
-        v_vel = u[:, 1:2]
-        return dde.grad.hessian(v_vel, x, i=1, j=2)
-    def v_xyt(x, u):
-        vxy = v_xy(x, u)
-        return dde.grad.jacobian(vxy, x, i=0, j=1)
-    def pde_u_xy(x, u):
-        pde_u = pde(x,u)
-        pde_u = pde_u[0]
-        return dde.grad.hessian(pde_u, x, i=0, j=1)
-    def pde_u_xt(x, u):
-        pde_u = pde(x,u)
-        pde_u = pde_u[0]
-        return dde.grad.hessian(pde_u, x, i=0, j=2)
-    def pde_u_yt(x, u):
-        pde_u = pde(x,u)
-        pde_u = pde_u[0]
-        return dde.grad.hessian(pde_u, x, i=1, j=2)
-    def pde_u_xyt(x,u):
-        pde_uxy = pde_u_xy(x,u)
-        return dde.grad.jacobian(pde_uxy,x,i=0,j=2)
-    def pde_v_xy(x,u):
-        pde_v = pde(x, u)
-        pde_v = pde_v[1]
-        return dde.grad.hessian(pde_v, x, i=0, j=1)
-    def pde_v_xt(x,u):
-        pde_v = pde(x, u)
-        pde_v = pde_v[1]
-        return dde.grad.hessian(pde_v, x, i=0, j=2)
-    def pde_v_yt(x,u):
-        pde_v = pde(x, u)
-        pde_v = pde_v[1]
-        return dde.grad.hessian(pde_v, x, i=1, j=2)
-    def pde_v_xyt(x,u):
-        pde_vxy = pde_v_xy(x, u)
-        return dde.grad.jacobian(pde_vxy, x, i=0, j=2)
 
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     spacedomain = dde.geometry.Rectangle(xmin=[0, 0],xmax=[1,1]) # The x,y domain is a rectangle with corners 0,0 to 1,1.
@@ -216,44 +209,64 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"l2_relative_error_u: {l2_error_u}")
     print(f"l2_relative_error_v: {l2_error_v}")
 
+
+
     for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
+        dde.grad.clear() # Clearing previous Jacobian and Hessian data to minimise memory usage increase
         # --- Below, all the different info sources for resampling
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
             Y = np.add(Y[0,:],Y[1,:])
-        elif input1 == "uv_xy":
+        elif input1 == "xy":
             Y1 = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "uv_xt":
+        elif input1 == "xt":
             Y1 = np.abs(model.predict(X, operator=u_xt)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=v_xt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "uv_yt":
+        elif input1 == "yt":
             Y1 = np.abs(model.predict(X, operator=u_yt)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=v_yt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "uv_xyt":
+        elif input1 == "xxyytt":
+            A1 = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
+            A2 = np.abs(model.predict(X, operator=v_xy)).astype(np.float64)
+            B1 = np.abs(model.predict(X, operator=u_xt)).astype(np.float64)
+            B2 = np.abs(model.predict(X, operator=v_xt)).astype(np.float64)
+            C1 = np.abs(model.predict(X, operator=u_yt)).astype(np.float64)
+            C2 = np.abs(model.predict(X, operator=v_yt)).astype(np.float64)
+            Y = np.sum([A1,A2,B1,B2,C1,C2], axis=0)
+        elif input1 == "xyt":
             Y1 = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "pde_uvxy":
-            Y1 = np.abs(model.predict(X, operator=pde_u_xy))
-            Y2 = np.abs(model.predict(X, operator=pde_v_xy))
+        elif input1 == "pde_xy":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xy)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=pde_v_xy)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "pde_uvxt":
-            Y1 = np.abs(model.predict(X, operator=pde_u_xt))
-            Y2 = np.abs(model.predict(X, operator=pde_v_xt))
+        elif input1 == "pde_xt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=pde_v_xt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "pde_uvyt":
-            Y1 = np.abs(model.predict(X, operator=pde_u_yt))
-            Y2 = np.abs(model.predict(X, operator=pde_v_yt))
+        elif input1 == "pde_yt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_yt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=pde_v_yt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        elif input1 == "pde_uvxyt":
-            Y1 = np.abs(model.predict(X, operator=pde_u_xyt))
-            Y2 = np.abs(model.predict(X, operator=pde_v_xyt))
+        elif input1 == "pde_xxyytt":
+            A1 = np.abs(model.predict(X, operator=pde_u_xy)).astype(np.float64)
+            A2 = np.abs(model.predict(X, operator=pde_v_xy)).astype(np.float64)
+            B1 = np.abs(model.predict(X, operator=pde_u_xt)).astype(np.float64)
+            B2 = np.abs(model.predict(X, operator=pde_v_xt)).astype(np.float64)
+            C1 = np.abs(model.predict(X, operator=pde_u_yt)).astype(np.float64)
+            C2 = np.abs(model.predict(X, operator=pde_v_yt)).astype(np.float64)
+            Y = np.sum([A1,A2,B1,B2,C1,C2],axis=0)
+        elif input1 == "pde_xyt":
+            Y1 = np.abs(model.predict(X, operator=pde_u_xyt)).astype(np.float64)
+            Y2 = np.abs(model.predict(X, operator=pde_v_xyt)).astype(np.float64)
             Y = np.add(Y1,Y2)
+        dde.grad.clear() # Clearing previous Jacobian and Hessian data to minimise memory usage increase
 
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
@@ -264,7 +277,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
         model.compile("adam", lr=0.001)
         model.train(epochs=1000, display_every=5000)
-        model.compile("L-BFGS")
+        model.compile("L-BFGS") 
         model.train(display_every=5000)
 
         print("!\nFinished loop #{}\n".format(i+1))
@@ -288,12 +301,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"error_final_v is: {error_final_v}")
 
     time_taken = (time.time()-start_t)
-    
-    # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-    #              loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-    #              output_dir="../results/additional_info")
     return error_final_u, error_final_v, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------

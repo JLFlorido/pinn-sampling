@@ -2,8 +2,8 @@
 be2d_fixed_arc.py. 
 
 Usage:
-    be2d_arc.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    be2d_arc.py -h | --help
+    be2d_fixed_arc.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    be2d_fixed_arc.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -26,7 +26,9 @@ import deepxde as dde
 from deepxde.backend import tf
 import numpy as np
 import time
+# import matplotlib.pyplot as plt
 
+# os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
 # dde.config.set_default_float("float64")
 dde.optimizers.config.set_LBFGS_options(maxiter=201000)
 
@@ -71,8 +73,8 @@ def quasirandom(n_samples, sampler): # This function creates pseudorandom distri
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, input1="none"): # Main Code
-    print(f"k equals {k}")
-    print(f"c equals {c}")
+    print(f"k not needed")
+    print(f"c not needed")
     print(f"NumDomain equals {NumDomain}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
@@ -134,17 +136,17 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
                 tf.cos(np.pi * x[:, 0:1]) * tf.sin(np.pi * x[:, 1:2]) + (tf.sin(np.pi * x[:, 1:2])) * (x[:, 2:3])* y2
                 ],
                 axis=1)
-
     net.apply_output_transform(output_transform)
     
-    model = dde.Model(data, net)
-
     # The only training as no resampling
-    print("Initial 15000 Adam steps")
+    model = dde.Model(data, net)
+    print("Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=15000, display_every=5000)
-    model.compile("L-BFGS steps")
-    losshistory, train_state = model.train(display_every=5000)
+    model.train(epochs=15000, display_every=1000)
+    print("L-BFGS steps")
+    model.compile("L-BFGS")
+    # losshistory, train_state = model.train(display_every=10000)
+    model.train(display_every=10000)
 
     # Measuring error after initial phase. This information is not used by network to train.
 
@@ -157,12 +159,8 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"error_final_v is: {error_final_v}")
 
     time_taken = (time.time()-start_t)
+    print("Time taken:", time_taken)
     
-    dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-                 loss_fname=f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-                 train_fname=f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-                 test_fname=f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-                 output_dir="../results//be2d/loss_info")
     return error_final_u, error_final_v, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -197,9 +195,9 @@ if __name__ == "__main__":
     # Directory to save to
     output_dir = "../results/be2d/error_time"
     # File name
-    error_u_fname = f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_u.txt"
-    error_v_fname = f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_v.txt"
-    time_taken_fname = f"be2d_fixed_{method}_D{depth}_k{k}c{c}_N{NumDomain}_L{NumResamples}_time_taken.txt"
+    error_u_fname = f"be2d_fixed_{method}_D{depth}_N{NumDomain}_error_final_u.txt"
+    error_v_fname = f"be2d_fixed_{method}_D{depth}_N{NumDomain}_error_final_v.txt"
+    time_taken_fname = f"be2d_fixed_{method}_D{depth}_N{NumDomain}_time_taken.txt"
     
     # If results directory does not exist, this creates it
     if not os.path.exists(output_dir):

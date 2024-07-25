@@ -1,9 +1,9 @@
-"""Run PINN to solve Burger's Equation in 2D using adaptive resampling.
-be2d_main.py. 
+"""Run PINN to solve Burger's Equation in 2D using adaptive resampling, adapted to run in ARC (Leeds HPC).
+be2d_arc.py. 
 
 Usage:
-    be2d_main.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
-    be2d_main.py -h | --help
+    be2d_arc.py [--k=<hyp_k>] [--c=<hyp_c>] [--N=<NumDomain>] [--L=<NumResamples> ] [--IM=<InitialMethod>] [--DEP=<depth>] [--INP1=<input1>]
+    be2d_arc.py -h | --help
 Options:
     -h --help                   Display this help message
     --k=<hyp_k>                 Hyperparameter k [default: 1]
@@ -12,62 +12,58 @@ Options:
     --L=<NumResamples>          Number of times points are resampled [default: 10]
     --IM=<InitialMethod>        Initial distribution method from: "Grid","Random","LHS", "Halton", "Hammersley", "Sobol" [default: Hammersley]
     --DEP=<depth>               Depth of the network [default: 3]
-    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: pde_xy]
+    --INP1=<input1>             Info source, "uxt", "uxut1" etc... [default: residual]
 """
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Initial imports and some function definitions.
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 import os
 from docopt import docopt
+import numpy as np
+import time
+
+# Imports for DeepXDE from Lu Group
 import skopt
 from distutils.version import LooseVersion
 import deepxde as dde
 from deepxde.backend import tf
-import numpy as np
-import time
-import matplotlib.pyplot as plt
+
 from memory_profiler import memory_usage
 
-# os.environ['DDE_BACKEND'] = 'tensorflow.compat.v1'
-# dde.config.set_default_float("float64")
-dde.optimizers.config.set_LBFGS_options(maxiter=1000)
+dde.optimizers.config.set_LBFGS_options(maxiter=1000) # Set max iterations of L-BFGS in each loop
 
-def gen_testdata(): # This function opens the ground truth solution at a fixed uniform set of points.
+def gen_testdata(): # This function opens the ground truth solution at a fixed uniform set of points; for evaluating error.
+    # X = np.load("./npy_files/X.npy")
     X = np.load("./src/burgers_2d/X.npy")
+
     X = X[0,:]
+    # Y = np.load("./npy_files/Y.npy")
     Y = np.load("./src/burgers_2d/Y.npy")
+
     Y = Y[:,0]
     T = np.arange(0,1.1,0.1)
     xx,yy,tt = np.meshgrid(X,Y,T)
     xyt = np.vstack((np.ravel(xx), np.ravel(yy),  np.ravel(tt))).T
+    # results_u = np.load("./npy_files/results_u.npy")
     results_u = np.load("./src/burgers_2d/results_u.npy")
+
     u = results_u.flatten()[:,None]
     results_v = np.load("./src/burgers_2d/results_v.npy")
+    # results_v = np.load("./npy_files/results_v.npy")
     v = results_v.flatten()[:,None]
     u = np.squeeze(u)
     v = np.squeeze(v)
-    
-    # indices_x0 = np.where(xyt[:, 0] == 0)[0] # This finds the coordinates where x and y = 0, 1
-    # indices_x1 = np.where(xyt[:, 0] == 1)[0]
-    # indices_y0 = np.where(xyt[:, 1] == 0)[0]
-    # indices_y1 = np.where(xyt[:, 1] == 1)[0]
-
     return xyt, u, v
 
-def quasirandom(n_samples, sampler): # This function creates pseudorandom distributions if initial method is specified.
+def quasirandom(n_samples, sampler): # This function creates the initial distribution specified in docopts; default Hammersley
     space = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
     if sampler == "LHS":
-        sampler = skopt.sampler.Lhs(
-            lhs_type="centered", criterion="maximin", iterations=1000
-        )
+        sampler = skopt.sampler.Lhs(lhs_type="centered", criterion="maximin", iterations=1000)
     elif sampler == "Halton":
         sampler = skopt.sampler.Halton(min_skip=-1, max_skip=-1)
     elif sampler == "Hammersley":
         sampler = skopt.sampler.Hammersly(min_skip=-1, max_skip=-1)
     elif sampler == "Sobol":
-        # Remove the first point [0, 0, ...] and the second point [0.5, 0.5, ...], which
-        # are too special and may cause some error.
         if LooseVersion(skopt.__version__) < LooseVersion("0.9"):
             sampler = skopt.sampler.Sobol(min_skip=2, max_skip=2, randomize=False)
         else:
@@ -154,11 +150,12 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"k equals {k}")
     print(f"c equals {c}")
     print(f"NumDomain equals {NumDomain}")
+    print(f"NumResamples equals {NumResamples}")
     print(f"Method equals {method}")
     print(f"Depth equals {depth}")
     print(f"Input1 equals {input1}")
     start_t = time.time() #Start time.
-    
+
     # This chunk of code describes the problem using dde structure. Varies depending on prescribed initial distribution.
     spacedomain = dde.geometry.Rectangle(xmin=[0, 0],xmax=[1,1]) # The x,y domain is a rectangle with corners 0,0 to 1,1.
     timedomain = dde.geometry.TimeDomain(0, 1) # Time domain is a line from 0 to 1.
@@ -185,7 +182,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             train_distribution="uniform",
             anchors=sample_pts,
         )
-    # net = dde.maps.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
     net = dde.nn.FNN([3] + [64] * depth + [2], "tanh", "Glorot normal") # 3 Input nodes for x,y and t; 2 outputs for u and v.
 
     def output_transform(x, y): # BC        
@@ -202,43 +198,15 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     
     model = dde.Model(data, net)
 
-    # # Extract current points and plot them - for checking.
-    # points_before = data.train_points()
-    # points_figure = plt.figure(figsize=(6, 5))
-    # ax = points_figure.add_subplot(projection='3d')
-    # ax.scatter(points_before[:, 0], points_before[:, 1], points_before[:, 2])
-    # plt.show()
-    
     # Initial Training before resampling
     print("Initial 15000 Adam steps")
     model.compile("adam", lr=0.001)
-    model.train(epochs=1000, display_every=1000)    
-
-    #   # ------ Testing guiding information; the time taken to evaluate a given thing 
-    # X = geomtime.random_points(1000)
-    # time00 = time.time()
-    # Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-    # time01= time.time()
-    # print(f"pde shape check:{Y.shape}")
-    # print(f'took {time01-time00}')
-
-    # time10= time.time()
-    # Y = np.abs(model.predict(X, operator=pde_v_xy)).astype(np.float64)
-    # time11= time.time()
-    # print(f"pde_v_xy shape check:{Y.shape}")
-    # print(f'took {time11-time10}')
-    # time20= time.time()
-    # Y = np.abs(model.predict(X, operator=pde_v_xyt)).astype(np.float64)
-    # time21= time.time()
-    # print(f"pde_v_xyt shape check:{Y.shape}")
-    # print(f'took {time21-time20}')
-    # quit()
-    # # --------------- End of testing code snippet
+    model.train(epochs=15000, display_every=5000)
     # print("Initial L-BFGS steps")
-    # model.compile("L-BFGS")
-    # model.train(display_every=1000)
+    model.compile("L-BFGS")
+    model.train(display_every=1000)
+
     # Measuring error after initial phase. This information is not used by network to train.
-    # print(xyt.shape)
     pred = model.predict(xyt)
     u_pred = pred[:,0]
     v_pred = pred[:,1]
@@ -252,10 +220,10 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 
     for i in range(NumResamples): # Resampling loop begins. 100 is default, first run took ~4 hours...
         X = geomtime.random_points(100000)
+        dde.grad.clear() # Clearing previous Jacobian and Hessian data to minimise memory usage increase
         # --- Below, all the different info sources for resampling
         if input1 == "residual" or input1 == "pde":
             Y = np.abs(model.predict(X, operator=pde)).astype(np.float64)
-            Y2 = np.abs(model.predict(X, operator=pde)).astype(np.float64)
             Y = np.add(Y[0,:],Y[1,:])
         elif input1 == "xy":
             Y1 = np.abs(model.predict(X, operator=u_xy)).astype(np.float64)
@@ -276,7 +244,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             B2 = np.abs(model.predict(X, operator=v_xt)).astype(np.float64)
             C1 = np.abs(model.predict(X, operator=u_yt)).astype(np.float64)
             C2 = np.abs(model.predict(X, operator=v_yt)).astype(np.float64)
-            Y = np.add(A1,A2,B1,B2,C1,C2)
+            Y = np.sum([A1,A2,B1,B2,C1,C2], axis=0)
         elif input1 == "xyt":
             Y1 = np.abs(model.predict(X, operator=u_xyt)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=v_xyt)).astype(np.float64)
@@ -300,30 +268,23 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
             B2 = np.abs(model.predict(X, operator=pde_v_xt)).astype(np.float64)
             C1 = np.abs(model.predict(X, operator=pde_u_yt)).astype(np.float64)
             C2 = np.abs(model.predict(X, operator=pde_v_yt)).astype(np.float64)
-            Y = np.add(A1,A2,B1,B2,C1,C2)
+            Y = np.sum([A1,A2,B1,B2,C1,C2],axis=0)
         elif input1 == "pde_xyt":
             Y1 = np.abs(model.predict(X, operator=pde_u_xyt)).astype(np.float64)
             Y2 = np.abs(model.predict(X, operator=pde_v_xyt)).astype(np.float64)
             Y = np.add(Y1,Y2)
-        
+
         err_eq = np.power(Y, k) / np.power(Y, k).mean() + c
         err_eq_normalized = (err_eq / sum(err_eq))[:, 0]
         X_ids = np.random.choice(a=len(X), size=NumDomain, replace=False, p=err_eq_normalized)
         X_selected = X[X_ids]
 
-        # # Extract current points and plot them - for checking.
-        # points_figure = plt.figure(figsize=(6, 5))
-        # ax = points_figure.add_subplot(projection='3d')
-        # ax.scatter(X_selected[:, 0], X_selected[:, 1], X_selected[:, 2])
-        # plt.show()
-        # quit()
-
         data.replace_with_anchors(X_selected) # Change current points with selected X points
 
         model.compile("adam", lr=0.001)
-        model.train(epochs=1000, display_every=300000)
+        model.train(epochs=500, display_every=5000)
         model.compile("L-BFGS")
-        model.train(display_every=300000)
+        model.train(display_every=5000)
 
         print("!\nFinished loop #{}\n".format(i+1))
 
@@ -337,8 +298,6 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
         print(f"l2_relative_error_u: {l2_error_u}")
         print(f"l2_relative_error_v: {l2_error_v}")
 
-        dde.grad.clear()
-
     y_pred = model.predict(xyt)
     u_pred = y_pred[:,0]
     v_pred = y_pred[:,1]
@@ -347,105 +306,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
     print(f"error_final_u is: {error_final_u}")
     print(f"error_final_v is: {error_final_v}")
 
-
-    # -------------------------------------------------
-    # Figures for checking u, v, and bc qualitatively, as error was quite far.
-    # Plotting both u and v to check.
-    # fig = plt.figure(figsize=(14, 10))
-
-    # ax1 = fig.add_subplot(221, projection='3d')
-    # ax1.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_pred)
-    # ax1.set_title('u_pred')
-    # ax1.set_xlabel('x')
-    # ax1.set_ylabel('y')
-    # ax1.set_zlabel('t')
-
-    # ax2 = fig.add_subplot(222, projection='3d')
-    # ax2.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=u_true)
-    # ax2.set_title('u_true')
-    # ax2.set_xlabel('x')
-    # ax2.set_ylabel('y')
-    # ax2.set_zlabel('t')
-
-    # ax3 = fig.add_subplot(223, projection='3d')
-    # ax3.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_pred)
-    # ax3.set_title('v_pred')
-    # ax3.set_xlabel('x')
-    # ax3.set_ylabel('y')
-    # ax3.set_zlabel('t')
-
-    # ax4 = fig.add_subplot(224, projection='3d')
-    # ax4.scatter(xyt[:, 0], xyt[:, 1], xyt[:, 2], c=v_true)
-    # ax4.set_title('v_true')
-    # ax4.set_xlabel('x')
-    # ax4.set_ylabel('y')
-    # ax4.set_zlabel('t')
-
-    # plt.tight_layout()
-    # plt.show()
-
-    # Here plotting slices to check B.C.s
-    # fig1, axs = plt.subplots(1, 2, figsize=(10, 5))
-    # axs[0].scatter(xyt[0::11,0], xyt[0::11,1], c=u_pred[0::11], marker='o')
-    # axs[0].set_title('u_pred t=0')
-    # axs[0].set_xlabel('X')
-    # axs[0].set_ylabel('Y')
-
-    # axs[1].scatter(xyt[0::11,0], xyt[0::11,1], c=u_true[0::11], marker='o')
-    # axs[1].set_title('u_true t=0')
-    # axs[1].set_xlabel('X')
-    # axs[1].set_ylabel('Y')
-
-    # # Second Figure
-    # fig2, axs2 = plt.subplots(1, 2, figsize=(10, 5))
-    # axs2[0].scatter(xyt[indices_x0,2], xyt[indices_x0,1], c=u_pred[indices_x0], marker='o')
-    # axs2[0].set_title('u_pred x=0')
-    # axs2[0].set_xlabel('t')
-    # axs2[0].set_ylabel('Y')
-
-    # axs2[1].scatter(xyt[indices_x0,2], xyt[indices_x0,1], c=u_true[indices_x0], marker='o')
-    # axs2[1].set_title('u_true x=0')
-    # axs2[1].set_xlabel('t')
-    # axs2[1].set_ylabel('Y')
-
-    # # Third Figure
-    # fig3, axs3 = plt.subplots(1, 2, figsize=(10, 5))
-    # scatter32 = axs3[0].scatter(xyt[indices_x1,2], xyt[indices_x1,1], c=u_pred[indices_x1], marker='o')
-    # cbar32 = plt.colorbar(scatter32, ax=axs3[1])
-    # axs3[0].set_title('u_pred x=1')
-    # axs3[0].set_xlabel('t')
-    # axs3[0].set_ylabel('X')
-
-    # scatter33 = axs3[1].scatter(xyt[indices_x1,2], xyt[indices_x1,1], c=u_true[indices_x1], marker='o')
-    # cbar33 = plt.colorbar(scatter33, ax=axs3[1])
-    # axs3[1].set_title('u_true x=1')
-    # axs3[1].set_xlabel('t')
-    # axs3[1].set_ylabel('X')
-    
-    # plt.tight_layout()
-    # plt.show()
-
-    # The following works for X, Y meshgrid, for a specific t. 
-    # Would require re-creating the meshgrid from xyt, and appropriately selecting u_pred, so might not be worth the hassle
-    # fig = plt.figure()
-    # ax = plt.axes(projection='3d')
-    # ax.plot_surface(X, Y, u_pred, cmap='viridis')
-    # ax.set_zlim(-1, 1)
-
-    # ax.set_xlabel("x")
-    # ax.set_ylabel("y")
-
-    # ax.elev = 35
-    # ax.azim = -30
-    # plt.show()
-    # ------------------------- end of figures.
     time_taken = (time.time()-start_t)
-    
-    # dde.saveplot(losshistory, train_state, issave=False, isplot=False, 
-    #              loss_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_loss_info.dat", 
-    #              train_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalpoints.dat", 
-    #              test_fname=f"replacement_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_finalypred.dat",
-    #              output_dir="../results/additional_info")
     return error_final_u, error_final_v, time_taken
  
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -453,6 +314,7 @@ def main(k=1, c=1, NumDomain=2000, NumResamples=100, method="Random", depth=3, i
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Read imput arguments from docopts
     args = docopt(__doc__)
     c=float(args['--c'])
     k=float(args['--k'])
@@ -463,6 +325,11 @@ if __name__ == "__main__":
     input1=str(args["--INP1"])
 
     # Run main code, save 3 results
+    mem_usage = memory_usage(main, interval=60)
+    print('Memory usage (in chunks of .1 seconds): %s' % mem_usage)
+    print('Maximum memory usage: %s' % max(mem_usage))
+    print("done")
+    quit()
     error_final_u, error_final_v, time_taken = main(c=c, k=k, NumDomain=NumDomain,NumResamples=NumResamples,method=method, depth=depth, input1=input1) # Run main, record error history and final accuracy.
     print(f'Time taken was: {time_taken}')
     print(f'Error_u was: {error_final_u}')
@@ -475,9 +342,9 @@ if __name__ == "__main__":
         error_final_u = np.atleast_1d(error_final_u)
     if np.isscalar(error_final_v):
         error_final_v = np.atleast_1d(error_final_v)
-
+    
     # Directory to save to
-    output_dir = "../pinn-sampling/src/burgers_2d" 
+    output_dir = "../results/be2d/error_time"
     # File name
     error_u_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_u.txt"
     error_v_fname = f"be2d_{input1}_D{depth}_{method}_k{k}c{c}_N{NumDomain}_L{NumResamples}_error_final_v.txt"
@@ -506,6 +373,7 @@ if __name__ == "__main__":
                     np.savetxt(file, data)
             except Exception as e2:
                 print(f"An exception occurred again: {e2}")
+                print(f"This was the data:\n{data}")
 
     # Use function to append to file.
     append_to_file(error_u_fname, error_final_u)
